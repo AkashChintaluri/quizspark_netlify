@@ -1,6 +1,6 @@
 [build]
 base = "frontend"         # Vite project folder
-publish = "frontend/dist" # Static files output
+publish = "dist" # Static files output
 command = "npm run build" # Build command for Vite
 functions = "functions"   # Folder for Netlify Functions
 
