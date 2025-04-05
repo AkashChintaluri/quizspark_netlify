@@ -2,7 +2,7 @@ const { Pool } = require('pg');
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false } // Required for Supabase
+    ssl: { rejectUnauthorized: false }
 });
 
 exports.handler = async (event) => {
@@ -45,6 +45,7 @@ exports.handler = async (event) => {
       FROM ${table} 
       WHERE username = $1 AND password = $2
     `;
+        console.log('Executing query:', { query, params: [username, password] });
         const result = await pool.query(query, [username, password]);
 
         if (result.rows.length > 0) {
@@ -67,11 +68,16 @@ exports.handler = async (event) => {
             body: JSON.stringify({ success: false, message: 'Invalid credentials' })
         };
     } catch (error) {
-        console.error('Login error:', error);
+        console.error('Login error:', {
+            message: error.message,
+            code: error.code,
+            stack: error.stack,
+            details: error.detail
+        });
         return {
             statusCode: 500,
             headers: { 'Access-Control-Allow-Origin': '*' },
-            body: JSON.stringify({ error: 'Login failed' })
+            body: JSON.stringify({ error: 'Login failed', details: error.message })
         };
     }
 };

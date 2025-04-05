@@ -96,7 +96,7 @@ function StudentLogin() {
                         {isLoading ? 'Logging In...' : 'Login'}
                     </button>
                 </form>
-                <p>
+                <p className="signup-text">
                     Don't have an account?{' '}
                     <a href="/signup" className="signup-link">
                         Sign up here
