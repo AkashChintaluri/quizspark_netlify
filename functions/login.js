@@ -2,10 +2,7 @@ const { Pool } = require('pg');
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: {
-        rejectUnauthorized: false,
-        ca: process.env.NODE_EXTRA_CA_CERTS // Only if using custom CA
-    }
+    ssl: { rejectUnauthorized: false }
 });
 
 exports.handler = async (event) => {
@@ -43,13 +40,12 @@ exports.handler = async (event) => {
                     user: { ...result.rows[0], userType }
                 })
             };
-        } else {
-            return {
-                statusCode: 401,
-                headers: { 'Access-Control-Allow-Origin': '*' },
-                body: JSON.stringify({ success: false, message: 'Invalid credentials' })
-            };
         }
+        return {
+            statusCode: 401,
+            headers: { 'Access-Control-Allow-Origin': '*' },
+            body: JSON.stringify({ success: false, message: 'Invalid credentials' })
+        };
     } catch (error) {
         console.error('Login error:', error);
         return {
