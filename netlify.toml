@@ -1,8 +1,8 @@
 [build]
 base = "frontend"
-command = "npm install && npm run build"  # Simplified, runs in frontend/
-publish = "frontend/dist"
-functions = "../functions"  # Points to root-level functions/
+command = "cd .. && npm install && cd frontend && npm install && npm run build"
+publish = "dist"  # Relative to base (frontend/), not "frontend/dist"
+functions = "../functions"
 
 [[redirects]]
 from = "/api/*"
