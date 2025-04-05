@@ -1,22 +1,36 @@
 const { Pool } = require('pg');
 
 const pool = new Pool({
-    user: process.env.DB_USER,
-    host: process.env.DB_HOST,
-    database: process.env.DB_NAME,
-    password: process.env.DB_PASSWORD,
-    port: process.env.DB_PORT || 5432,
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false } // Required for Supabase
 });
 
-exports.handler = async (event, context) => {
+exports.handler = async (event) => {
     if (event.httpMethod !== 'POST') {
         return { statusCode: 405, body: 'Method Not Allowed' };
     }
 
-    const { username, email, password, userType } = JSON.parse(event.body);
-    const table = userType === 'student' ? 'student_login' : 'teacher_login';
-
     try {
+        const { username, email, password, userType } = JSON.parse(event.body);
+
+        if (!username || !email || !password || !userType) {
+            return {
+                statusCode: 400,
+                headers: { 'Access-Control-Allow-Origin': '*' },
+                body: JSON.stringify({ error: 'Missing required fields' })
+            };
+        }
+
+        const validTypes = ['student', 'teacher'];
+        if (!validTypes.includes(userType)) {
+            return {
+                statusCode: 400,
+                headers: { 'Access-Control-Allow-Origin': '*' },
+                body: JSON.stringify({ error: 'Invalid user type' })
+            };
+        }
+
+        const table = `${userType}_login`;
         const query = `
       INSERT INTO ${table} (username, email, password)
       VALUES ($1, $2, $3)
@@ -26,18 +40,24 @@ exports.handler = async (event, context) => {
 
         return {
             statusCode: 201,
+            headers: {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
             body: JSON.stringify({
                 message: 'User registered successfully',
-                userId: result.rows[0].id,
-            }),
-            headers: { 'Content-Type': 'application/json' },
+                userId: result.rows[0].id
+            })
         };
     } catch (error) {
         console.error('Signup error:', error);
         return {
             statusCode: 500,
-            body: JSON.stringify({ error: 'Registration failed' }),
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
+            body: JSON.stringify({ error: 'Registration failed' })
         };
     }
 };

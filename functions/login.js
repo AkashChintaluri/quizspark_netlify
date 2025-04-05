@@ -2,11 +2,10 @@ const { Pool } = require('pg');
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false }
+    ssl: { rejectUnauthorized: false } // Required for Supabase
 });
 
 exports.handler = async (event) => {
-    // Handle preflight request
     if (event.httpMethod === 'OPTIONS') {
         return {
             statusCode: 200,
@@ -18,13 +17,11 @@ exports.handler = async (event) => {
     }
 
     try {
-        // Handle base64 encoded body
-        const body = event.isBase64Encoded ?
-            Buffer.from(event.body, 'base64').toString('utf8') :
-            event.body;
+        const body = event.isBase64Encoded
+            ? Buffer.from(event.body, 'base64').toString('utf8')
+            : event.body;
         const { username, password, userType } = JSON.parse(body);
 
-        // Input validation
         if (!username || !password || !userType) {
             return {
                 statusCode: 400,
@@ -33,7 +30,6 @@ exports.handler = async (event) => {
             };
         }
 
-        // Secure table name validation
         const validTypes = ['student', 'teacher'];
         if (!validTypes.includes(userType)) {
             return {
@@ -43,9 +39,10 @@ exports.handler = async (event) => {
             };
         }
 
+        const table = `${userType}_login`;
         const query = `
       SELECT id, username, email 
-      FROM ${userType}_login 
+      FROM ${table} 
       WHERE username = $1 AND password = $2
     `;
         const result = await pool.query(query, [username, password]);
@@ -69,7 +66,6 @@ exports.handler = async (event) => {
             headers: { 'Access-Control-Allow-Origin': '*' },
             body: JSON.stringify({ success: false, message: 'Invalid credentials' })
         };
-
     } catch (error) {
         console.error('Login error:', error);
         return {

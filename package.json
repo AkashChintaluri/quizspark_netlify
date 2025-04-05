@@ -1,8 +1,11 @@
 {
-  "name": "quizspark-netlify-functions",
+  "name": "quizspark-netlify",
   "version": "1.0.0",
+  "private": true,
   "dependencies": {
-    "pg": "^8.11.3",
-    "dotenv": "^16.4.7"
+    "pg": "^8.11.3"
+  },
+  "scripts": {
+    "postinstall": "cd frontend && npm install"
   }
 }

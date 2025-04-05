@@ -25,27 +25,38 @@ function StudentLogin() {
     const handleInputChange = (e) => {
         const { name, value } = e.target;
         setFormData((prev) => ({ ...prev, [name]: value }));
+        if (errorMessage) setErrorMessage('');
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        const { username, password } = formData;
+
+        if (!username.trim() || !password.trim()) {
+            setErrorMessage('Username and password are required');
+            return;
+        }
+
         setIsLoading(true);
         setErrorMessage('');
 
         try {
             const response = await axios.post(`${BASE_URL}/login`, {
-                ...formData,
+                username: username.trim(),
+                password: password.trim(),
                 userType: 'student'
             });
 
             if (response.data.success) {
-                localStorage.setItem('user', JSON.stringify(response.data.user));
+                const { id, username, userType } = response.data.user;
+                localStorage.setItem('user', JSON.stringify({ id, username, userType }));
                 setShowPopup(true);
             } else {
-                setErrorMessage('Invalid username or password');
+                setErrorMessage(response.data.message || 'Invalid username or password');
             }
         } catch (error) {
             setErrorMessage(error.response?.data?.error || 'Login failed. Please try again.');
+            console.error('Login error:', error);
         } finally {
             setIsLoading(false);
         }
@@ -53,7 +64,50 @@ function StudentLogin() {
 
     return (
         <div className="login">
-            {/* ... rest of the JSX remains unchanged ... */}
+            <div className="login-content">
+                <h2>Student Login</h2>
+                <form className="login-form" onSubmit={handleSubmit}>
+                    <div className="form-group">
+                        <input
+                            type="text"
+                            name="username"
+                            value={formData.username}
+                            onChange={handleInputChange}
+                            required
+                            placeholder="Username"
+                            autoComplete="username"
+                            disabled={isLoading}
+                        />
+                    </div>
+                    <div className="form-group">
+                        <input
+                            type="password"
+                            name="password"
+                            value={formData.password}
+                            onChange={handleInputChange}
+                            required
+                            placeholder="Password"
+                            autoComplete="current-password"
+                            disabled={isLoading}
+                        />
+                    </div>
+                    {errorMessage && <div className="error-message">{errorMessage}</div>}
+                    <button type="submit" className="login-button" disabled={isLoading}>
+                        {isLoading ? 'Logging In...' : 'Login'}
+                    </button>
+                </form>
+                <p>
+                    Don't have an account?{' '}
+                    <a href="/signup" className="signup-link">
+                        Sign up here
+                    </a>
+                </p>
+            </div>
+            {showPopup && (
+                <div className="popup success">
+                    ✔️ Login successful! Redirecting to dashboard...
+                </div>
+            )}
         </div>
     );
 }
