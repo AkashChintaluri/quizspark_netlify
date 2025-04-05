@@ -2,7 +2,7 @@
 base = "frontend"
 command = "npm install && npm run build"
 publish = "dist"
-functions = "../functions"  # Points to root functions folder
+functions = "../functions"
 
 [[redirects]]
 from = "/api/*"

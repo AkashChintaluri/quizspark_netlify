@@ -18,12 +18,34 @@ exports.handler = async (event) => {
     }
 
     try {
-        const { username, password, userType } = JSON.parse(event.body);
-        const table = userType === 'student' ? 'student_login' : 'teacher_login';
+        // Handle base64 encoded body
+        const body = event.isBase64Encoded ?
+            Buffer.from(event.body, 'base64').toString('utf8') :
+            event.body;
+        const { username, password, userType } = JSON.parse(body);
+
+        // Input validation
+        if (!username || !password || !userType) {
+            return {
+                statusCode: 400,
+                headers: { 'Access-Control-Allow-Origin': '*' },
+                body: JSON.stringify({ error: 'Missing required fields' })
+            };
+        }
+
+        // Secure table name validation
+        const validTypes = ['student', 'teacher'];
+        if (!validTypes.includes(userType)) {
+            return {
+                statusCode: 400,
+                headers: { 'Access-Control-Allow-Origin': '*' },
+                body: JSON.stringify({ error: 'Invalid user type' })
+            };
+        }
 
         const query = `
       SELECT id, username, email 
-      FROM ${table} 
+      FROM ${userType}_login 
       WHERE username = $1 AND password = $2
     `;
         const result = await pool.query(query, [username, password]);
@@ -41,11 +63,13 @@ exports.handler = async (event) => {
                 })
             };
         }
+
         return {
             statusCode: 401,
             headers: { 'Access-Control-Allow-Origin': '*' },
             body: JSON.stringify({ success: false, message: 'Invalid credentials' })
         };
+
     } catch (error) {
         console.error('Login error:', error);
         return {

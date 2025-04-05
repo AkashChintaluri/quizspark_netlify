@@ -10,7 +10,6 @@ function TeacherLogin() {
     const [showPopup, setShowPopup] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
 
-    // Updated API base URL dynamically
     const BASE_URL = process.env.REACT_APP_API_BASE_PATH || '/api';
 
     useEffect(() => {
@@ -23,9 +22,10 @@ function TeacherLogin() {
         }
     }, [showPopup, navigate]);
 
+    // Fixed input handling using name attribute
     const handleInputChange = (e) => {
-        const { id, value } = e.target;
-        setFormData((prev) => ({ ...prev, [id]: value }));
+        const { name, value } = e.target;
+        setFormData((prev) => ({ ...prev, [name]: value }));
     };
 
     const handleSubmit = async (e) => {
@@ -34,14 +34,20 @@ function TeacherLogin() {
         setErrorMessage('');
 
         try {
-            // Use the serverless function endpoint
             const response = await axios.post(`${BASE_URL}/login`, {
                 ...formData,
-                userType: 'teacher', // Specify user type as teacher
+                userType: 'teacher'
+            }, {
+                headers: {
+                    'Content-Type': 'application/json'
+                }
             });
 
             if (response.data.success) {
-                localStorage.setItem('user', JSON.stringify(response.data.user));
+                localStorage.setItem('user', JSON.stringify({
+                    ...response.data.user,
+                    type: 'teacher'
+                }));
                 setShowPopup(true);
             } else {
                 setErrorMessage('Invalid username or password');
@@ -63,7 +69,7 @@ function TeacherLogin() {
                     <div className="form-group">
                         <input
                             type="text"
-                            id="username"
+                            name="username"  // Changed from id to name
                             value={formData.username}
                             onChange={handleInputChange}
                             required
@@ -75,7 +81,7 @@ function TeacherLogin() {
                     <div className="form-group">
                         <input
                             type="password"
-                            id="password"
+                            name="password"  // Changed from id to name
                             value={formData.password}
                             onChange={handleInputChange}
                             required

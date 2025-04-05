@@ -14,7 +14,6 @@ function SignupForm() {
     const [isLoading, setIsLoading] = useState(false);
     const [showPopup, setShowPopup] = useState(false);
 
-    // Updated to use Netlify's redirect path
     const BASE_URL = process.env.REACT_APP_API_BASE_PATH || '/api';
 
     useEffect(() => {
@@ -27,9 +26,10 @@ function SignupForm() {
         }
     }, [showPopup, navigate]);
 
+    // Fixed input handling using name attribute
     const handleInputChange = (e) => {
-        const { id, value } = e.target;
-        setFormData((prev) => ({ ...prev, [id]: value }));
+        const { name, value } = e.target;
+        setFormData((prev) => ({ ...prev, [name]: value }));
     };
 
     const handleSubmit = async (e) => {
@@ -37,12 +37,17 @@ function SignupForm() {
         setIsLoading(true);
 
         try {
-            const response = await axios.post(`${BASE_URL}/signup`, formData);
+            const response = await axios.post(`${BASE_URL}/signup`, formData, {
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
             setShowPopup(true);
             console.log('Signup successful:', response.data);
         } catch (error) {
             const errorMessage = error.response?.data?.error ||
-                'Registration failed. Please try again.';
+                'Registration failed. Please check your information and try again.';
             alert(errorMessage);
             console.error('Signup error:', error);
         } finally {
@@ -58,7 +63,7 @@ function SignupForm() {
                     <div className="form-group">
                         <input
                             type="text"
-                            id="username"
+                            name="username"  // Changed from id to name
                             value={formData.username}
                             onChange={handleInputChange}
                             required
@@ -69,7 +74,7 @@ function SignupForm() {
                     <div className="form-group">
                         <input
                             type="email"
-                            id="email"
+                            name="email"  // Changed from id to name
                             value={formData.email}
                             onChange={handleInputChange}
                             required
@@ -80,7 +85,7 @@ function SignupForm() {
                     <div className="form-group">
                         <input
                             type="password"
-                            id="password"
+                            name="password"  // Changed from id to name
                             value={formData.password}
                             onChange={handleInputChange}
                             required
@@ -90,7 +95,7 @@ function SignupForm() {
                     </div>
                     <div className="form-group select-group">
                         <select
-                            id="userType"
+                            name="userType"  // Added name attribute
                             value={formData.userType}
                             onChange={handleInputChange}
                         >
