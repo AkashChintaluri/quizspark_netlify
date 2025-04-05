@@ -10,8 +10,8 @@ function TeacherLogin() {
     const [showPopup, setShowPopup] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
 
-    // Update the API base URL dynamically
-    const BASE_URL = process.env.REACT_APP_API_BASE_PATH || '/.netlify/functions';
+    // Updated API base URL dynamically
+    const BASE_URL = process.env.REACT_APP_API_BASE_PATH || '/api';
 
     useEffect(() => {
         if (showPopup) {

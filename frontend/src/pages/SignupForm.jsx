@@ -14,8 +14,8 @@ function SignupForm() {
     const [isLoading, setIsLoading] = useState(false);
     const [showPopup, setShowPopup] = useState(false);
 
-    // Update the API base URL dynamically
-    const BASE_URL = process.env.REACT_APP_API_BASE_PATH || '/.netlify/functions';
+    // Updated to use Netlify's redirect path
+    const BASE_URL = process.env.REACT_APP_API_BASE_PATH || '/api';
 
     useEffect(() => {
         if (showPopup) {
@@ -37,13 +37,12 @@ function SignupForm() {
         setIsLoading(true);
 
         try {
-            // Use the serverless function endpoint
             const response = await axios.post(`${BASE_URL}/signup`, formData);
             setShowPopup(true);
             console.log('Signup successful:', response.data);
         } catch (error) {
-            const errorMessage =
-                error.response?.data?.error || 'Registration failed. Please try again.';
+            const errorMessage = error.response?.data?.error ||
+                'Registration failed. Please try again.';
             alert(errorMessage);
             console.error('Signup error:', error);
         } finally {
