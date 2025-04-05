@@ -1,11 +1,10 @@
-# netlify.toml
 [build]
-base = "frontend"
-command = "npm run build"
-publish = "dist"
-functions = "functions"
+base = "frontend"       # Set working directory to frontend/
+command = "npm install && npm run build" # Install dependencies and build
+publish = "dist"        # Built files in frontend/dist/
+functions = "../functions" # Points to root functions/ folder
 
 [[redirects]]
 from = "/api/*"
-to = "/.netlify/functions/:splat"
+to = "/api/:splat"
 status = 200
