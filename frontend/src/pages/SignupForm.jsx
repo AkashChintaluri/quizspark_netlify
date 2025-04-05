@@ -1,4 +1,3 @@
-// src/components/SignupForm.jsx
 import { useNavigate } from 'react-router-dom';
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
@@ -10,10 +9,13 @@ function SignupForm() {
         username: '',
         email: '',
         password: '',
-        userType: 'student'
+        userType: 'student',
     });
     const [isLoading, setIsLoading] = useState(false);
     const [showPopup, setShowPopup] = useState(false);
+
+    // Update the API base URL dynamically
+    const BASE_URL = process.env.REACT_APP_API_BASE_PATH || '/.netlify/functions';
 
     useEffect(() => {
         if (showPopup) {
@@ -35,7 +37,8 @@ function SignupForm() {
         setIsLoading(true);
 
         try {
-            const response = await axios.post('http://localhost:3000/signup', formData);
+            // Use the serverless function endpoint
+            const response = await axios.post(`${BASE_URL}/signup`, formData);
             setShowPopup(true);
             console.log('Signup successful:', response.data);
         } catch (error) {

@@ -10,6 +10,9 @@ function TeacherLogin() {
     const [showPopup, setShowPopup] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
 
+    // Update the API base URL dynamically
+    const BASE_URL = process.env.REACT_APP_API_BASE_PATH || '/.netlify/functions';
+
     useEffect(() => {
         if (showPopup) {
             const timer = setTimeout(() => {
@@ -22,7 +25,7 @@ function TeacherLogin() {
 
     const handleInputChange = (e) => {
         const { id, value } = e.target;
-        setFormData(prev => ({ ...prev, [id]: value }));
+        setFormData((prev) => ({ ...prev, [id]: value }));
     };
 
     const handleSubmit = async (e) => {
@@ -31,9 +34,10 @@ function TeacherLogin() {
         setErrorMessage('');
 
         try {
-            const response = await axios.post('http://localhost:3000/login', {
+            // Use the serverless function endpoint
+            const response = await axios.post(`${BASE_URL}/login`, {
                 ...formData,
-                userType: 'teacher'
+                userType: 'teacher', // Specify user type as teacher
             });
 
             if (response.data.success) {
