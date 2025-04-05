@@ -33,4 +33,9 @@ dist-ssr
 .terraform.lock.hcl
 
 
+node_modules/
+frontend/dist/
+.vite/
+server/node_modules/
+
 

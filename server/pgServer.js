@@ -579,7 +579,7 @@ function startServer() {
         try {
             console.log('Received retest request:', req.body);
             const { student_id, quiz_id, attempt_id } = req.body;
-            
+
             if (!quiz_id) {
                 console.error('Missing quiz_id in request');
                 return res.status(400).json({ error: 'quiz_id is required' });
@@ -790,9 +790,9 @@ function startServer() {
             res.json(leaderboardData);
         } catch (error) {
             console.error('Error fetching leaderboard:', error);
-            res.status(500).json({ 
+            res.status(500).json({
                 error: 'Failed to fetch leaderboard data',
-                details: error.message 
+                details: error.message
             });
         }
     });

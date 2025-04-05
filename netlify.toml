@@ -1,0 +1,10 @@
+[build]
+base = "frontend"         # Vite project folder
+publish = "frontend/dist" # Static files output
+command = "npm run build" # Build command for Vite
+functions = "functions"   # Folder for Netlify Functions
+
+[[redirects]]
+from = "/api/*"           # Proxy API calls to functions
+to = "/.netlify/functions/:splat"
+status = 200
