@@ -53,7 +53,8 @@ exports.handler = async (event) => {
             .from(table)
             .select('id, username, email, password')
             .eq('username', username)
-            .single();
+            .limit(1)
+            .maybeSingle();
 
         if (error) {
             console.error('Database query error:', error);

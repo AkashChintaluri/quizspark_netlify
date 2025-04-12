@@ -14,11 +14,10 @@ exports.handler = async (event) => {
     try {
         console.log('Testing Supabase connection...');
         
-        // Test the connection by fetching system time
+        // Test the connection by fetching a simple query
         const { data, error } = await supabase
             .from('student_login')
-            .select('count(*)')
-            .single();
+            .select('*', { count: 'exact', head: true });
 
         if (error) {
             throw error;
@@ -30,7 +29,7 @@ exports.handler = async (event) => {
             body: JSON.stringify({
                 success: true,
                 message: 'Supabase connection successful',
-                data
+                count: data.count
             })
         };
     } catch (error) {
