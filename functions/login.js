@@ -5,21 +5,37 @@ const bcrypt = require('bcryptjs');
 const getDbConfig = () => {
     try {
         const connectionString = process.env.DATABASE_URL;
-        console.log('Database URL format check:', {
-            hasProtocol: connectionString.startsWith('postgresql://'),
-            includesHost: connectionString.includes('@'),
-            includesPort: connectionString.includes(':5432'),
-            includesSSL: connectionString.includes('sslmode=require')
+        
+        // Parse the connection string to extract host
+        const match = connectionString.match(/@([^:]+):/);
+        const host = match ? match[1] : null;
+        
+        console.log('Database connection check:', {
+            hasConnectionString: !!connectionString,
+            host: host || 'not found',
+            hasSSL: connectionString.includes('sslmode=require')
         });
+
+        // Try direct connection parameters if URL parsing fails
+        if (!host) {
+            console.log('Falling back to direct connection parameters');
+            return {
+                host: 'db.hntrpejpiboxnlbzrbbc.supabase.co',
+                port: 5432,
+                database: 'postgres',
+                user: 'postgres',
+                password: process.env.DB_PASSWORD || 'CpI8sfi8CuIvp5Kw',
+                ssl: {
+                    rejectUnauthorized: false
+                }
+            };
+        }
 
         return {
             connectionString,
             ssl: {
                 rejectUnauthorized: false
-            },
-            // Add shorter timeouts for faster feedback
-            connectionTimeoutMillis: 10000,
-            query_timeout: 10000
+            }
         };
     } catch (error) {
         console.error('Error in getDbConfig:', error);
@@ -30,7 +46,9 @@ const getDbConfig = () => {
 // Create pool with error logging
 let pool;
 try {
-    pool = new Pool(getDbConfig());
+    const config = getDbConfig();
+    console.log('Attempting to create pool with config type:', typeof config);
+    pool = new Pool(config);
     console.log('Pool created successfully');
 } catch (error) {
     console.error('Error creating pool:', error);
