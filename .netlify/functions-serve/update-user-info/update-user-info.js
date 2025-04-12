@@ -1,0 +1,1 @@
+module.exports = require('./functions/update-user-info.js')

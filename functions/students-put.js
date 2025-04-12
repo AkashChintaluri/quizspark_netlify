@@ -10,6 +10,10 @@ exports.handler = async (event) => {
         return handleCors();
     }
 
+    if (event.httpMethod !== 'PUT') {
+        return createErrorResponse(405, 'Method not allowed');
+    }
+
     try {
         // Extract student_id from path, handling both formats:
         // 1. /.netlify/functions/students-put/1
@@ -27,6 +31,10 @@ exports.handler = async (event) => {
             return createErrorResponse(400, 'student_id is required');
         }
 
+        if (!name && !email) {
+            return createErrorResponse(400, 'At least one field (name or email) is required');
+        }
+
         // Check if student exists
         const { data: student, error: studentError } = await supabase
             .from('student_login')
@@ -40,9 +48,10 @@ exports.handler = async (event) => {
         }
 
         // Update student profile
+        // Map frontend 'name' field to database 'username' field
         const updateData = {};
-        if (name) updateData.username = name;
-        if (email) updateData.email = email;
+        if (name) updateData.username = name;  // frontend 'name' maps to database 'username'
+        if (email) updateData.email = email;   // email field name is the same in both
 
         const { data: updatedStudent, error: updateError } = await supabase
             .from('student_login')
@@ -58,8 +67,7 @@ exports.handler = async (event) => {
 
         return createSuccessResponse({
             success: true,
-            message: 'Student profile updated successfully',
-            student: {
+            user: {
                 id: updatedStudent.id,
                 username: updatedStudent.username,
                 email: updatedStudent.email

@@ -893,15 +893,16 @@ function SettingsContent({ currentUser }) {
 
     const handleProfileUpdate = async () => {
         try {
-            const response = await axios.put(`${API_BASE_URL}/.netlify/functions/students-put/${currentUser.id}`, {
+            const response = await axios.put(`/.netlify/functions/students-put/${currentUser.id}`, {
                 name: profileData.name,
                 email: profileData.email
             });
+            
             if (response.data.success) {
                 const updatedUser = {
                     ...currentUser,
-                    username: profileData.name,
-                    email: profileData.email
+                    username: response.data.user.username,
+                    email: response.data.user.email
                 };
                 localStorage.setItem('user', JSON.stringify(updatedUser));
                 setCurrentUser(updatedUser);
