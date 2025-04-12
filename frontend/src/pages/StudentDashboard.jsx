@@ -893,7 +893,7 @@ function SettingsContent({ currentUser }) {
 
     const handleProfileUpdate = async () => {
         try {
-            const response = await axios.put(`${API_BASE_URL}/students/${currentUser.id}`, {
+            const response = await axios.put(`${API_BASE_URL}/.netlify/functions/students-put/${currentUser.id}`, {
                 name: profileData.name,
                 email: profileData.email
             });

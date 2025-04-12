@@ -11,7 +11,12 @@ exports.handler = async (event) => {
     }
 
     try {
-        const student_id = event.path.split('/').pop();
+        // Extract student_id from path, handling both formats:
+        // 1. /.netlify/functions/students-put/1
+        // 2. /api/students/1
+        const pathParts = event.path.split('/');
+        const student_id = pathParts[pathParts.length - 1];
+        
         const body = event.isBase64Encoded
             ? Buffer.from(event.body, 'base64').toString('utf8')
             : event.body;
