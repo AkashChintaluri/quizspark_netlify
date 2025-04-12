@@ -10,6 +10,7 @@
     "pg": "^8.11.3"
   },
   "scripts": {
+    "build": "cd frontend && npm run build",
     "postinstall": "cd frontend && npm install"
   }
 }
