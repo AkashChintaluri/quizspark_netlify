@@ -148,48 +148,66 @@ function HomeContent({ currentUser, setActiveTab }) {
     const [upcomingQuizzes, setUpcomingQuizzes] = useState([]);
     const [attemptedQuizzes, setAttemptedQuizzes] = useState([]);
     const [stats, setStats] = useState({
-        total_attempts: 0,
-        average_score: 0,
-        completed_quizzes: 0,
+        totalQuizzes: 0,
+        averageScore: 0,
+        totalTeachers: 0
     });
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
+    const [error, setError] = useState(null);
     const navigate = useNavigate();
 
     useEffect(() => {
-        const fetchHomeData = async () => {
-            setLoading(true);
-            setError('');
+        const fetchDashboardData = async () => {
             try {
-                if (!currentUser?.id) {
-                    throw new Error('Invalid user session');
-                }
+                setLoading(true);
+                setError(null);
 
-                const studentId = typeof currentUser.id === 'object' ? currentUser.id.toString() : currentUser.id;
+                const [upcomingResponse, attemptedResponse, statsResponse] = await Promise.all([
+                    axios.get(`${API_BASE_URL}/upcoming-quizzes?student_id=${currentUser.id}`),
+                    axios.get(`${API_BASE_URL}/attempted-quizzes?student_id=${currentUser.id}`),
+                    axios.get(`${API_BASE_URL}/user-stats?student_id=${currentUser.id}`)
+                ]);
 
-                const endpoints = [
-                    `${API_BASE_URL}/upcoming-quizzes?student_id=${studentId}`,
-                    `${API_BASE_URL}/user-stats?student_id=${studentId}`,
-                    `${API_BASE_URL}/attempted-quizzes?student_id=${studentId}`,
-                ];
+                // Transform upcoming quizzes data
+                const upcomingData = upcomingResponse.data.quizzes.map(quiz => ({
+                    id: quiz.quiz_id,
+                    title: quiz.quiz_name,
+                    code: quiz.quiz_code,
+                    dueDate: quiz.due_date,
+                    teacher: {
+                        name: quiz.teacher_login?.username || '',
+                        email: quiz.teacher_login?.email || ''
+                    },
+                    isAttempted: quiz.is_attempted
+                }));
 
-                const [upcomingResponse, statsResponse, attemptedResponse] = await Promise.all(
-                    endpoints.map((url) => axios.get(url))
-                );
+                // Transform attempted quizzes data
+                const attemptedData = attemptedResponse.data.quizzes.map(quiz => ({
+                    id: quiz.quiz_id,
+                    title: quiz.quiz_name,
+                    code: quiz.quiz_code,
+                    score: quiz.score,
+                    completedAt: quiz.completed_at,
+                    dueDate: quiz.due_date,
+                    teacher: {
+                        name: quiz.teacher_login?.username || '',
+                        email: quiz.teacher_login?.email || ''
+                    }
+                }));
 
-                setUpcomingQuizzes(upcomingResponse.data);
-                setStats(statsResponse.data || { total_attempts: 0, average_score: 0, completed_quizzes: 0 });
-                setAttemptedQuizzes(attemptedResponse.data);
+                setUpcomingQuizzes(upcomingData);
+                setAttemptedQuizzes(attemptedData);
+                setStats(statsResponse.data);
             } catch (err) {
-                setError('Failed to load dashboard data.');
                 console.error('Error fetching dashboard data:', err);
+                setError('Failed to load dashboard data. Please try again later.');
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchHomeData();
-    }, [currentUser]);
+        fetchDashboardData();
+    }, [currentUser.id]);
 
     const handleUpcomingQuizClick = (quizCode) => {
         setActiveTab('take quiz');
@@ -224,15 +242,15 @@ function HomeContent({ currentUser, setActiveTab }) {
                         <div className="stats-grid">
                             <div className="stat-card">
                                 <h4>Total Attempts</h4>
-                                <p>{stats.total_attempts}</p>
+                                <p>{stats.totalQuizzes}</p>
                             </div>
                             <div className="stat-card">
                                 <h4>Average Score</h4>
-                                <p>{(stats.average_score || 0).toFixed(1)}%</p>
+                                <p>{(stats.averageScore || 0).toFixed(1)}%</p>
                             </div>
                             <div className="stat-card">
                                 <h4>Completed Quizzes</h4>
-                                <p>{stats.completed_quizzes}</p>
+                                <p>{stats.totalQuizzes}</p>
                             </div>
                         </div>
                     </div>
@@ -245,18 +263,18 @@ function HomeContent({ currentUser, setActiveTab }) {
                             <div className="quiz-list">
                                 {upcomingQuizzes.map((quiz) => (
                                     <div
-                                        key={quiz.quiz_id}
+                                        key={quiz.id}
                                         className="quiz-card clickable"
-                                        onClick={() => handleUpcomingQuizClick(quiz.quiz_code)}
+                                        onClick={() => handleUpcomingQuizClick(quiz.code)}
                                     >
                                         <div className="flex items-center justify-between">
                                             <div>
-                                                <h3 className="text-lg font-medium text-gray-900">{quiz.quiz_name}</h3>
-                                                <p className="text-sm text-gray-500">Code: {quiz.quiz_code}</p>
+                                                <h3 className="text-lg font-medium text-gray-900">{quiz.title}</h3>
+                                                <p className="text-sm text-gray-500">Code: {quiz.code}</p>
                                             </div>
                                             <div className="text-right">
-                                                <p className="text-sm text-gray-500">Due: {new Date(quiz.due_date).toLocaleString()}</p>
-                                                <p className="text-sm text-gray-500">Teacher: {quiz.teacher_login.username}</p>
+                                                <p className="text-sm text-gray-500">Due: {new Date(quiz.dueDate).toLocaleString()}</p>
+                                                <p className="text-sm text-gray-500">Teacher: {quiz.teacher.name}</p>
                                             </div>
                                         </div>
                                     </div>
@@ -273,18 +291,18 @@ function HomeContent({ currentUser, setActiveTab }) {
                             <div className="quiz-list">
                                 {attemptedQuizzes.map((quiz) => (
                                     <div
-                                        key={quiz.quiz_id}
+                                        key={quiz.id}
                                         className="quiz-card clickable"
-                                        onClick={() => handleAttemptedQuizClick(quiz.quiz_code)}
+                                        onClick={() => handleAttemptedQuizClick(quiz.code)}
                                     >
                                         <div className="flex items-center justify-between">
                                             <div>
-                                                <h3 className="text-lg font-medium text-gray-900">{quiz.quiz_name}</h3>
-                                                <p className="text-sm text-gray-500">Code: {quiz.quiz_code}</p>
+                                                <h3 className="text-lg font-medium text-gray-900">{quiz.title}</h3>
+                                                <p className="text-sm text-gray-500">Code: {quiz.code}</p>
                                             </div>
                                             <div className="text-right">
-                                                <p className="text-sm text-gray-500">Score: {quiz.score}/{quiz.total_questions}</p>
-                                                <p className="text-sm text-gray-500">Teacher: {quiz.teacher_login.username}</p>
+                                                <p className="text-sm text-gray-500">Score: {quiz.score}/{quiz.totalQuestions}</p>
+                                                <p className="text-sm text-gray-500">Teacher: {quiz.teacher.name}</p>
                                             </div>
                                         </div>
                                     </div>
@@ -301,12 +319,48 @@ function HomeContent({ currentUser, setActiveTab }) {
 }
 
 function TakeQuizContent({ currentUser }) {
+    const [quizzes, setQuizzes] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+        const fetchQuizzes = async () => {
+            try {
+                setLoading(true);
+                setError(null);
+                const response = await axios.get(`${API_BASE_URL}/upcoming-quizzes?student_id=${currentUser.id}`);
+                
+                // Transform the data to match the expected structure
+                const transformedQuizzes = response.data.quizzes.map(quiz => ({
+                    id: quiz.quiz_id,
+                    title: quiz.quiz_name,
+                    code: quiz.quiz_code,
+                    dueDate: quiz.due_date,
+                    teacher: {
+                        name: quiz.teacher_login?.username || '',
+                        email: quiz.teacher_login?.email || ''
+                    },
+                    isAttempted: quiz.is_attempted
+                }));
+
+                setQuizzes(transformedQuizzes);
+            } catch (err) {
+                console.error('Error fetching quizzes:', err);
+                setError('Failed to load quizzes. Please try again later.');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchQuizzes();
+    }, [currentUser.id]);
+
     const [quizCode, setQuizCode] = useState('');
     const [quizData, setQuizData] = useState(null);
-    const [error, setError] = useState('');
     const [selectedAnswers, setSelectedAnswers] = useState({});
     const [showQuizCodeInput, setShowQuizCodeInput] = useState(true);
-    const [loading, setLoading] = useState(false);
+    const [retestMessage, setRetestMessage] = useState('');
+    const [retestLoading, setRetestLoading] = useState(false);
     const { quizCode: urlQuizCode } = useParams();
     const navigate = useNavigate();
 
@@ -462,10 +516,45 @@ function TakeQuizContent({ currentUser }) {
 }
 
 function ResultsContent({ currentUser, setActiveTab }) {
+    const [quizzes, setQuizzes] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+        const fetchQuizzes = async () => {
+            try {
+                setLoading(true);
+                setError(null);
+                const response = await axios.get(`${API_BASE_URL}/attempted-quizzes?student_id=${currentUser.id}`);
+                
+                // Transform the data to match the expected structure
+                const transformedQuizzes = response.data.quizzes.map(quiz => ({
+                    id: quiz.quiz_id,
+                    title: quiz.quiz_name,
+                    code: quiz.quiz_code,
+                    score: quiz.score,
+                    completedAt: quiz.completed_at,
+                    dueDate: quiz.due_date,
+                    teacher: {
+                        name: quiz.teacher_login?.username || '',
+                        email: quiz.teacher_login?.email || ''
+                    }
+                }));
+
+                setQuizzes(transformedQuizzes);
+            } catch (err) {
+                console.error('Error fetching quiz results:', err);
+                setError('Failed to load quiz results. Please try again later.');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchQuizzes();
+    }, [currentUser.id]);
+
     const [quizCode, setQuizCode] = useState('');
     const [quizResult, setQuizResult] = useState(null);
-    const [error, setError] = useState('');
-    const [loading, setLoading] = useState(false);
     const [retestMessage, setRetestMessage] = useState('');
     const [retestLoading, setRetestLoading] = useState(false);
     const { quizCode: urlQuizCode } = useParams();
