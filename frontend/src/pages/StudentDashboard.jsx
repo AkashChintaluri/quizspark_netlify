@@ -165,10 +165,12 @@ function HomeContent({ currentUser, setActiveTab }) {
                     throw new Error('Invalid user session');
                 }
 
+                const studentId = typeof currentUser.id === 'object' ? currentUser.id.toString() : currentUser.id;
+
                 const endpoints = [
-                    `${API_BASE_URL}/upcoming-quizzes?student_id=${currentUser.id}`,
-                    `${API_BASE_URL}/user-stats?student_id=${currentUser.id}`,
-                    `${API_BASE_URL}/attempted-quizzes?student_id=${currentUser.id}`,
+                    `${API_BASE_URL}/upcoming-quizzes?student_id=${studentId}`,
+                    `${API_BASE_URL}/user-stats?student_id=${studentId}`,
+                    `${API_BASE_URL}/attempted-quizzes?student_id=${studentId}`,
                 ];
 
                 const [upcomingResponse, statsResponse, attemptedResponse] = await Promise.all(
@@ -180,6 +182,7 @@ function HomeContent({ currentUser, setActiveTab }) {
                 setAttemptedQuizzes(attemptedResponse.data);
             } catch (err) {
                 setError('Failed to load dashboard data.');
+                console.error('Error fetching dashboard data:', err);
             } finally {
                 setLoading(false);
             }
