@@ -117,12 +117,11 @@ function TeacherList({ studentId }) {
 
     return (
         <div className="teacher-list">
-            <h2>Teachers</h2>
+            <h2 className="main-header">Teachers</h2> {/* Single header */}
             {error && <div className="error-message">{error}</div>}
             {message && <div className="success-message">{message}</div>}
 
             <div className="teachers-section">
-                <h3>Your Teachers</h3>
                 {subscribedTeachers.length === 0 ? (
                     <div className="no-teachers">You are not subscribed to any teachers yet.</div>
                 ) : (
