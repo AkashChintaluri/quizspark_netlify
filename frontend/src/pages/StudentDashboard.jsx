@@ -313,20 +313,24 @@ function TakeQuizContent({ currentUser }) {
                 setError(null);
                 const response = await axios.get(`${API_BASE_URL}/upcoming-quizzes?student_id=${currentUser.id}`);
                 
-                // Transform the data to match the expected structure
-                const transformedQuizzes = response.data.quizzes.map(quiz => ({
-                    id: quiz.quiz_id,
-                    title: quiz.quiz_name,
-                    code: quiz.quiz_code,
-                    dueDate: quiz.due_date,
-                    teacher: {
-                        name: quiz.teacher_login?.username || '',
-                        email: quiz.teacher_login?.email || ''
-                    },
-                    isAttempted: quiz.is_attempted
-                }));
+                if (response.data?.quizzes) {
+                    // Transform the data to match the expected structure
+                    const transformedQuizzes = response.data.quizzes.map(quiz => ({
+                        id: quiz.quiz_id,
+                        title: quiz.quiz_name,
+                        code: quiz.quiz_code,
+                        dueDate: quiz.due_date,
+                        teacher: {
+                            name: quiz.teacher_login?.username || '',
+                            email: quiz.teacher_login?.email || ''
+                        }
+                    }));
 
-                setQuizzes(transformedQuizzes);
+                    setQuizzes(transformedQuizzes);
+                } else {
+                    console.warn('Unexpected response format:', response.data);
+                    setQuizzes([]);
+                }
             } catch (err) {
                 console.error('Error fetching quizzes:', err);
                 setError('Failed to load quizzes. Please try again later.');
@@ -510,21 +514,26 @@ function ResultsContent({ currentUser, setActiveTab }) {
                 setError(null);
                 const response = await axios.get(`${API_BASE_URL}/attempted-quizzes?student_id=${currentUser.id}`);
                 
-                // Transform the data to match the expected structure
-                const transformedQuizzes = response.data.quizzes.map(quiz => ({
-                    id: quiz.quiz_id,
-                    title: quiz.quiz_name,
-                    code: quiz.quiz_code,
-                    score: quiz.score,
-                    completedAt: quiz.completed_at,
-                    dueDate: quiz.due_date,
-                    teacher: {
-                        name: quiz.teacher_login?.username || '',
-                        email: quiz.teacher_login?.email || ''
-                    }
-                }));
+                if (response.data?.quizzes) {
+                    // Transform the data to match the expected structure
+                    const transformedQuizzes = response.data.quizzes.map(quiz => ({
+                        id: quiz.quiz_id,
+                        title: quiz.quiz_name,
+                        code: quiz.quiz_code,
+                        score: quiz.score,
+                        completedAt: quiz.completed_at,
+                        dueDate: quiz.due_date,
+                        teacher: {
+                            name: quiz.teacher_login?.username || '',
+                            email: quiz.teacher_login?.email || ''
+                        }
+                    }));
 
-                setQuizzes(transformedQuizzes);
+                    setQuizzes(transformedQuizzes);
+                } else {
+                    console.warn('Unexpected response format:', response.data);
+                    setQuizzes([]);
+                }
             } catch (err) {
                 console.error('Error fetching quiz results:', err);
                 setError('Failed to load quiz results. Please try again later.');

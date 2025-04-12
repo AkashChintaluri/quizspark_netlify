@@ -1,59 +1,58 @@
-const { 
-    supabase, 
-    handleCors, 
-    createErrorResponse, 
-    createSuccessResponse 
-} = require('./supabase-client');
+import { supabase, handleCors, createErrorResponse, createSuccessResponse } from './supabase-client';
 
-exports.handler = async (event) => {
+export async function handler(event) {
     if (event.httpMethod === 'OPTIONS') {
         return handleCors();
     }
 
-    try {
-        const { student_id } = event.queryStringParameters || {};
+    if (event.httpMethod !== 'GET') {
+        return createErrorResponse(405, 'Method not allowed');
+    }
 
-        // Validate input
+    try {
+        const { student_id } = event.queryStringParameters;
+
         if (!student_id) {
-            return createErrorResponse(400, 'student_id is required');
+            return createErrorResponse(400, 'Student ID is required');
         }
 
-        // Get all subscriptions with teacher details
-        const { data: subscriptions, error } = await supabase
+        // Fetch subscriptions with teacher details
+        const { data: subscriptions, error: subscriptionsError } = await supabase
             .from('subscriptions')
             .select(`
-                id,
+                student_id,
+                teacher_id,
                 subscribed_at,
-                teachers (
+                teacher_login (
                     id,
-                    name,
-                    email,
-                    bio
+                    username,
+                    email
                 )
             `)
-            .eq('student_id', student_id)
-            .order('subscribed_at', { ascending: false });
+            .eq('student_id', student_id);
 
-        if (error) {
-            console.error('Subscriptions fetch error:', error);
+        if (subscriptionsError) {
+            console.error('Error fetching subscriptions:', subscriptionsError);
             return createErrorResponse(500, 'Failed to fetch subscriptions');
         }
 
-        return createSuccessResponse({
-            subscriptions: subscriptions.map(sub => ({
-                id: sub.id,
-                subscribed_at: sub.subscribed_at,
-                teacher: {
-                    id: sub.teachers.id,
-                    name: sub.teachers.name,
-                    email: sub.teachers.email,
-                    bio: sub.teachers.bio
-                }
-            }))
-        });
+        // Transform the data to match the expected format
+        const formattedSubscriptions = subscriptions.map(sub => ({
+            student_id: sub.student_id,
+            teacher_id: sub.teacher_id,
+            subscribed_at: sub.subscribed_at,
+            teacher: {
+                id: sub.teacher_login.id,
+                username: sub.teacher_login.username,
+                email: sub.teacher_login.email
+            }
+        }));
 
+        return createSuccessResponse({
+            subscriptions: formattedSubscriptions
+        });
     } catch (error) {
-        console.error('Get subscriptions error:', error);
-        return createErrorResponse(500, 'Internal server error', error.message);
+        console.error('Error in subscriptions handler:', error);
+        return createErrorResponse(500, 'Internal server error');
     }
-};
+}
