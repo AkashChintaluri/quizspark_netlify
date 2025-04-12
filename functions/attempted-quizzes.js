@@ -26,7 +26,7 @@ exports.handler = async (event) => {
                 quiz_id,
                 score,
                 completed_at,
-                quiz:quizzes (
+                quiz:quizzes!quiz_attempts_quiz_id_fkey (
                     quiz_name,
                     quiz_code,
                     created_by,
@@ -44,7 +44,7 @@ exports.handler = async (event) => {
         }
 
         // Get teacher details for the quizzes
-        const teacherIds = [...new Set(attempts.map(a => a.quiz.created_by))];
+        const teacherIds = [...new Set(attempts.map(a => a.quiz?.created_by).filter(Boolean))];
         const { data: teachers, error: teacherError } = await supabase
             .from('teacher_login')
             .select('id, username, email')
@@ -60,16 +60,16 @@ exports.handler = async (event) => {
         return createSuccessResponse({
             quizzes: attempts.map(attempt => ({
                 quiz_id: attempt.quiz_id,
-                quiz_name: attempt.quiz.quiz_name,
-                quiz_code: attempt.quiz.quiz_code,
+                quiz_name: attempt.quiz?.quiz_name || '',
+                quiz_code: attempt.quiz?.quiz_code || '',
                 score: attempt.score,
                 completed_at: attempt.completed_at,
-                due_date: attempt.quiz.due_date,
-                created_at: attempt.quiz.created_at,
+                due_date: attempt.quiz?.due_date || '',
+                created_at: attempt.quiz?.created_at || '',
                 teacher_login: {
-                    id: attempt.quiz.created_by,
-                    username: teacherMap.get(attempt.quiz.created_by)?.username || '',
-                    email: teacherMap.get(attempt.quiz.created_by)?.email || ''
+                    id: attempt.quiz?.created_by || '',
+                    username: teacherMap.get(attempt.quiz?.created_by)?.username || '',
+                    email: teacherMap.get(attempt.quiz?.created_by)?.email || ''
                 }
             }))
         });

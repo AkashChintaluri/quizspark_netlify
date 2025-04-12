@@ -18,8 +18,6 @@ exports.handler = async (event) => {
             return createErrorResponse(400, 'student_id is required');
         }
 
-        const now = new Date().toISOString();
-
         // Get all upcoming quizzes for the student's subscribed teachers
         const { data: subscriptions, error: subError } = await supabase
             .from('subscriptions')
@@ -44,14 +42,14 @@ exports.handler = async (event) => {
                 questions,
                 due_date,
                 created_at,
-                teacher_login (
+                teacher:teacher_login!quizzes_created_by_fkey (
                     id,
                     username,
                     email
                 )
             `)
             .in('created_by', teacherIds)
-            .gt('due_date', now)
+            .gt('due_date', new Date().toISOString())
             .order('due_date', { ascending: true });
 
         if (quizError) {
@@ -82,9 +80,9 @@ exports.handler = async (event) => {
                 due_date: quiz.due_date,
                 created_at: quiz.created_at,
                 teacher_login: {
-                    id: quiz.teacher_login.id,
-                    username: quiz.teacher_login.username,
-                    email: quiz.teacher_login.email
+                    id: quiz.teacher?.id || '',
+                    username: quiz.teacher?.username || '',
+                    email: quiz.teacher?.email || ''
                 },
                 is_attempted: attemptedQuizIds.has(quiz.id)
             }))
