@@ -445,7 +445,7 @@ function TakeQuizContent({ currentUser, quizCode }) {
                 setLoading(true);
                 setError('');
                 console.log('Fetching quiz with code:', quizCode);
-                const response = await axios.get(`${API_BASE_URL}/quiz/${quizCode}`);
+                const response = await axios.get(`${API_BASE_URL}/quizzes/code/${quizCode}`);
                 console.log('Quiz response:', response.data);
                 
                 if (response.data) {
