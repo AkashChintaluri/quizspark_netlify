@@ -11,10 +11,11 @@ exports.handler = async (event) => {
     }
 
     try {
+        const student_id = event.path.split('/').pop();
         const body = event.isBase64Encoded
             ? Buffer.from(event.body, 'base64').toString('utf8')
             : event.body;
-        const { student_id, name, email, bio } = JSON.parse(body);
+        const { name, email } = JSON.parse(body);
 
         // Validate input
         if (!student_id) {
@@ -23,27 +24,26 @@ exports.handler = async (event) => {
 
         // Check if student exists
         const { data: student, error: studentError } = await supabase
-            .from('students')
+            .from('student_login')
             .select('id')
             .eq('id', student_id)
             .single();
 
-        if (studentError) {
+        if (studentError || !student) {
             console.error('Student check error:', studentError);
             return createErrorResponse(404, 'Student not found');
         }
 
         // Update student profile
         const updateData = {};
-        if (name) updateData.name = name;
+        if (name) updateData.username = name;
         if (email) updateData.email = email;
-        if (bio) updateData.bio = bio;
 
         const { data: updatedStudent, error: updateError } = await supabase
-            .from('students')
+            .from('student_login')
             .update(updateData)
             .eq('id', student_id)
-            .select()
+            .select('id, username, email')
             .single();
 
         if (updateError) {
@@ -52,17 +52,17 @@ exports.handler = async (event) => {
         }
 
         return createSuccessResponse({
+            success: true,
             message: 'Student profile updated successfully',
             student: {
                 id: updatedStudent.id,
-                name: updatedStudent.name,
-                email: updatedStudent.email,
-                bio: updatedStudent.bio
+                username: updatedStudent.username,
+                email: updatedStudent.email
             }
         });
 
     } catch (error) {
-        console.error('Update student error:', error);
+        console.error('Student update error:', error);
         return createErrorResponse(500, 'Internal server error', error.message);
     }
 };

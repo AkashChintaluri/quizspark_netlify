@@ -402,25 +402,25 @@ function TakeQuizContent({ currentUser }) {
     };
 
     const handleSubmitQuiz = async () => {
-        setLoading(true);
         try {
-            if (!currentUser?.id) {
-                throw new Error('User not authenticated');
-            }
-
             const response = await axios.post(`${API_BASE_URL}/submit-quiz`, {
-                quiz_code: quizCode,
-                user_id: currentUser.id,
-                answers: selectedAnswers,
+                quiz_id: currentQuiz.id,
+                student_id: currentUser.id,
+                answers: answers
             });
-
-            if (response.status === 201) {
-                navigate(`/student-dashboard/quiz/${quizCode}`);
+            if (response.data.success) {
+                setSuccessMessage('Quiz submitted successfully!');
+                setTimeout(() => {
+                    setSuccessMessage('');
+                    setCurrentQuiz(null);
+                    setAnswers([]);
+                    setQuizCode('');
+                }, 3000);
             }
         } catch (error) {
-            setError(error.message || 'An error occurred while submitting the quiz');
-        } finally {
-            setLoading(false);
+            console.error('Error submitting quiz:', error);
+            setErrorMessage('Failed to submit quiz. Please try again.');
+            setTimeout(() => setErrorMessage(''), 3000);
         }
     };
 
@@ -609,23 +609,20 @@ function ResultsContent({ currentUser, setActiveTab }) {
     };
 
     const handleRequestRetest = async (quizCode, attemptId) => {
-        setRetestLoading(true);
-        setRetestMessage('');
         try {
             const response = await axios.post(`${API_BASE_URL}/retest-requests`, {
+                quiz_code: quizCode,
                 student_id: currentUser.id,
-                quiz_id: quizResult.quiz_id,
                 attempt_id: attemptId
             });
-
-            if (response.status === 201) {
-                setRetestMessage('Retest request submitted successfully');
+            if (response.data.success) {
+                setSuccessMessage('Retest request submitted successfully!');
+                setTimeout(() => setSuccessMessage(''), 3000);
             }
         } catch (error) {
             console.error('Error requesting retest:', error);
-            setRetestMessage(error.response?.data?.error || 'Failed to request retest');
-        } finally {
-            setRetestLoading(false);
+            setErrorMessage('Failed to submit retest request. Please try again.');
+            setTimeout(() => setErrorMessage(''), 3000);
         }
     };
 
@@ -858,11 +855,14 @@ function SettingsContent({ currentUser }) {
     });
     const [profileData, setProfileData] = useState({
         email: currentUser?.email || '',
-        name: currentUser?.username || ''
+        name: currentUser?.username || '',
+        bio: currentUser?.bio || ''
     });
     const [message, setMessage] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [activeCard, setActiveCard] = useState(null);
+    const [successMessage, setSuccessMessage] = useState('');
+    const [errorMessage, setErrorMessage] = useState('');
 
     const handleLogout = () => {
         localStorage.removeItem('user');
@@ -870,55 +870,47 @@ function SettingsContent({ currentUser }) {
     };
 
     const handlePasswordChange = async () => {
-        setIsLoading(true);
-        setMessage('');
         try {
-            const response = await axios.post(`${API_BASE_URL}/change-password`, {
-                ...formData,
-                username: currentUser.username,
-                userType: 'student',
+            const response = await axios.put(`${API_BASE_URL}/student/${currentUser.id}/password`, {
+                currentPassword: formData.currentPassword,
+                newPassword: formData.newPassword
             });
-
-            if (response.status === 200) {
-                setMessage('Password changed successfully');
+            if (response.data.success) {
+                setSuccessMessage('Password updated successfully!');
+                setTimeout(() => setSuccessMessage(''), 3000);
                 setFormData({
                     currentPassword: '',
                     newPassword: '',
                 });
                 setShowPasswordFields(false);
                 setActiveCard(null);
-            } else {
-                setMessage(response.data.message || 'Failed to change password');
             }
         } catch (error) {
-            setMessage('An error occurred while changing the password');
-        } finally {
-            setIsLoading(false);
+            console.error('Error changing password:', error);
+            setErrorMessage('Failed to change password. Please try again.');
+            setTimeout(() => setErrorMessage(''), 3000);
         }
     };
 
     const handleProfileUpdate = async () => {
-        setIsLoading(true);
-        setMessage('');
         try {
-            const response = await axios.put(`${API_BASE_URL}/students/${currentUser.id}`, {
-                ...profileData
+            const response = await axios.put(`${API_BASE_URL}/student/${currentUser.id}`, {
+                name: profileData.name,
+                email: profileData.email,
+                bio: profileData.bio
             });
-
-            if (response.status === 200) {
-                setMessage('Profile updated successfully');
-                const updatedUser = { ...currentUser, ...profileData };
-                localStorage.setItem('user', JSON.stringify(updatedUser));
-                setShowProfileFields(false);
-                setActiveCard(null);
-            } else {
-                setMessage(response.data.message || 'Failed to update profile');
+            if (response.data.success) {
+                setCurrentUser(prev => ({
+                    ...prev,
+                    ...profileData
+                }));
+                setSuccessMessage('Profile updated successfully!');
+                setTimeout(() => setSuccessMessage(''), 3000);
             }
         } catch (error) {
             console.error('Error updating profile:', error);
-            setMessage('An error occurred while updating the profile');
-        } finally {
-            setIsLoading(false);
+            setErrorMessage('Failed to update profile. Please try again.');
+            setTimeout(() => setErrorMessage(''), 3000);
         }
     };
 
@@ -1031,6 +1023,16 @@ function SettingsContent({ currentUser }) {
                                     placeholder="Enter your email"
                                 />
                             </div>
+                            <div className="input-group">
+                                <label htmlFor="bio">Bio</label>
+                                <textarea
+                                    id="bio"
+                                    name="bio"
+                                    value={profileData.bio}
+                                    onChange={handleProfileInputChange}
+                                    placeholder="Enter your bio"
+                                />
+                            </div>
                             <button
                                 className="update-profile-btn"
                                 onClick={handleProfileUpdate}
@@ -1038,7 +1040,8 @@ function SettingsContent({ currentUser }) {
                             >
                                 {isLoading ? 'Updating...' : 'Update Profile'}
                             </button>
-                            {message && <div className={message.includes('success') ? 'success-message' : 'error-message'}>{message}</div>}
+                            {successMessage && <div className="success-message">{successMessage}</div>}
+                            {errorMessage && <div className="error-message">{errorMessage}</div>}
                         </div>
                     </div>
                 )}

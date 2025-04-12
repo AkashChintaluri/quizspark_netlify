@@ -11,74 +11,89 @@ exports.handler = async (event) => {
     }
 
     try {
-        const { student_id } = event.queryStringParameters || {};
+        const student_id = event.queryStringParameters?.student_id;
 
-        // Validate input
         if (!student_id) {
             return createErrorResponse(400, 'student_id is required');
         }
 
-        // Get all completed quiz attempts for the student
-        const { data: attempts, error: attemptError } = await supabase
+        // Get all quiz attempts for the student
+        const { data: attempts, error: attemptsError } = await supabase
             .from('quiz_attempts')
-            .select(`
-                attempt_id,
-                quiz_id,
-                score,
-                total_questions,
-                attempt_date,
-                is_completed,
-                quiz:quizzes (
-                    quiz_name,
-                    quiz_code,
-                    created_by,
-                    due_date,
-                    created_at
-                )
-            `)
-            .eq('user_id', student_id)
-            .eq('is_completed', true)
-            .order('attempt_date', { ascending: false });
+            .select('attempt_id, quiz_id, attempt_date, score, total_questions, time_taken, is_completed, answers')
+            .eq('user_id', student_id);
 
-        if (attemptError) {
-            console.error('Quiz attempts fetch error:', attemptError);
+        if (attemptsError) {
+            console.error('Quiz attempts fetch error:', attemptsError);
             return createErrorResponse(500, 'Failed to fetch quiz attempts');
         }
 
-        // Get teacher details for the quizzes
-        const teacherIds = [...new Set(attempts.map(a => a.quiz?.created_by).filter(Boolean))];
-        const { data: teachers, error: teacherError } = await supabase
+        if (!attempts || attempts.length === 0) {
+            return createSuccessResponse({
+                quizzes: []
+            });
+        }
+
+        // Get quiz details for all attempts
+        const quizIds = [...new Set(attempts.map(a => a.quiz_id))];
+        const { data: quizzes, error: quizzesError } = await supabase
+            .from('quizzes')
+            .select('quiz_id, quiz_name, quiz_code, created_by, due_date')
+            .in('quiz_id', quizIds);
+
+        if (quizzesError) {
+            console.error('Quizzes fetch error:', quizzesError);
+            return createErrorResponse(500, 'Failed to fetch quiz details');
+        }
+
+        // Get teacher details for all quizzes
+        const teacherIds = [...new Set(quizzes.map(q => q.created_by))];
+        const { data: teachers, error: teachersError } = await supabase
             .from('teacher_login')
-            .select('id, username, email')
+            .select('id, username')
             .in('id', teacherIds);
 
-        if (teacherError) {
-            console.error('Teachers fetch error:', teacherError);
+        if (teachersError) {
+            console.error('Teachers fetch error:', teachersError);
             return createErrorResponse(500, 'Failed to fetch teacher details');
         }
 
+        // Create lookup maps for efficient joining
+        const quizMap = new Map(quizzes.map(q => [q.quiz_id, q]));
         const teacherMap = new Map(teachers.map(t => [t.id, t]));
 
-        return createSuccessResponse({
-            quizzes: attempts.map(attempt => ({
-                quiz_id: attempt.quiz_id,
-                quiz_name: attempt.quiz?.quiz_name || '',
-                quiz_code: attempt.quiz?.quiz_code || '',
-                score: attempt.score,
-                total_questions: attempt.total_questions,
-                completed_at: attempt.attempt_date,
-                due_date: attempt.quiz?.due_date || '',
-                created_at: attempt.quiz?.created_at || '',
-                teacher_login: {
-                    id: attempt.quiz?.created_by || '',
-                    username: teacherMap.get(attempt.quiz?.created_by)?.username || '',
-                    email: teacherMap.get(attempt.quiz?.created_by)?.email || ''
+        // Combine the data
+        const attemptedQuizzes = attempts.map(attempt => {
+            const quiz = quizMap.get(attempt.quiz_id);
+            const teacher = teacherMap.get(quiz.created_by);
+            
+            return {
+                id: quiz.quiz_id,
+                title: quiz.quiz_name,
+                code: quiz.quiz_code,
+                dueDate: quiz.due_date,
+                teacher: {
+                    id: teacher.id,
+                    name: teacher.username
+                },
+                attempt: {
+                    id: attempt.attempt_id,
+                    score: attempt.score,
+                    totalQuestions: attempt.total_questions,
+                    attemptDate: attempt.attempt_date,
+                    timeTaken: attempt.time_taken,
+                    isCompleted: attempt.is_completed,
+                    answers: attempt.answers
                 }
-            }))
+            };
+        });
+
+        return createSuccessResponse({
+            quizzes: attemptedQuizzes
         });
 
     } catch (error) {
-        console.error('Get attempted quizzes error:', error);
+        console.error('Attempted quizzes error:', error);
         return createErrorResponse(500, 'Internal server error', error.message);
     }
 };

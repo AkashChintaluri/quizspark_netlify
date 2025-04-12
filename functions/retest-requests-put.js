@@ -11,67 +11,51 @@ exports.handler = async (event) => {
     }
 
     try {
+        const request_id = event.path.split('/').pop();
         const body = event.isBase64Encoded
             ? Buffer.from(event.body, 'base64').toString('utf8')
             : event.body;
-        const { request_id, status, feedback, teacher_id } = JSON.parse(body);
+        const { status, feedback } = JSON.parse(body);
 
         // Validate input
-        if (!request_id || !status || !teacher_id) {
-            return createErrorResponse(400, 'request_id, status, and teacher_id are required');
+        if (!request_id || !status) {
+            return createErrorResponse(400, 'request_id and status are required');
         }
 
-        // Check if request exists and belongs to the teacher's quiz
+        // Check if request exists and is pending
         const { data: request, error: requestError } = await supabase
             .from('retest_requests')
-            .select(`
-                id,
-                status,
-                quiz_id,
-                student_id,
-                quizzes (
-                    teacher_id
-                )
-            `)
-            .eq('id', request_id)
+            .select('request_id, status, quiz_id, attempt_id')
+            .eq('request_id', request_id)
             .single();
 
-        if (requestError) {
+        if (requestError || !request) {
             console.error('Request check error:', requestError);
             return createErrorResponse(404, 'Retest request not found');
-        }
-
-        // Verify teacher owns the quiz
-        if (request.quizzes.teacher_id !== teacher_id) {
-            return createErrorResponse(403, 'Not authorized to update this retest request');
         }
 
         if (request.status !== 'pending') {
             return createErrorResponse(400, 'Request has already been processed');
         }
 
-        // Start a transaction using RPC
-        const { data: result, error: rpcError } = await supabase.rpc('handle_retest_request', {
-            p_request_id: request_id,
-            p_status: status,
-            p_feedback: feedback,
-            p_quiz_id: request.quiz_id,
-            p_student_id: request.student_id
-        });
+        // Start a transaction to update request and handle quiz attempt
+        const { data: updatedRequest, error: updateError } = await supabase.rpc(
+            'handle_retest_request',
+            {
+                p_request_id: request_id,
+                p_status: status,
+                p_feedback: feedback
+            }
+        );
 
-        if (rpcError) {
-            console.error('Update request error:', rpcError);
+        if (updateError) {
+            console.error('Update request error:', updateError);
             return createErrorResponse(500, 'Failed to update retest request');
         }
 
         return createSuccessResponse({
-            message: `Retest request ${status}`,
-            request: {
-                id: request_id,
-                status,
-                feedback,
-                updated_at: new Date().toISOString()
-            }
+            message: 'Retest request updated successfully',
+            request: updatedRequest
         });
 
     } catch (error) {
