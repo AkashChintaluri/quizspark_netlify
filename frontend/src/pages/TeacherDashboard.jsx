@@ -42,7 +42,7 @@ function Sidebar({ activeTab, setActiveTab, currentUser }) {
         const fetchNotificationsCount = async () => {
             if (!currentUser?.id) return;
             try {
-                const response = await axios.get(`http://localhost:3000/api/retest-requests/teacher/${currentUser.id}`);
+                const response = await axios.get(`http://localhost:3000/api/retest-requests/teacher?teacher_id=${currentUser.id}`);
                 const unreadCount = response.data.filter(r => r.status === 'pending').length;
                 setNotificationsCount(unreadCount);
             } catch (error) {
@@ -132,8 +132,8 @@ function HomeContent({ currentUser, setActiveTab }) {
             setError('');
             try {
                 const [quizzesResponse, notificationsResponse] = await Promise.all([
-                    axios.get(`http://localhost:3000/api/quizzes/created/${currentUser.id}`),
-                    axios.get(`http://localhost:3000/api/retest-requests/teacher/${currentUser.id}`)
+                    axios.get(`http://localhost:3000/api/quizzes/created?teacher_id=${currentUser.id}`),
+                    axios.get(`http://localhost:3000/api/retest-requests/teacher?teacher_id=${currentUser.id}`)
                 ]);
 
                 if (quizzesResponse.status === 200) {
@@ -930,7 +930,7 @@ function NotificationsContent({ currentUser }) {
             setLoading(true);
             setError('');
             try {
-                const response = await axios.get(`http://localhost:3000/api/retest-requests/teacher/${currentUser.id}`);
+                const response = await axios.get(`http://localhost:3000/api/retest-requests/teacher?teacher_id=${currentUser.id}`);
                 setNotifications(response.data);
             } catch (error) {
                 console.error('Error fetching notifications:', error);

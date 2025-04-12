@@ -166,9 +166,9 @@ function HomeContent({ currentUser, setActiveTab }) {
                 }
 
                 const endpoints = [
-                    `${API_BASE_URL}/upcoming-quizzes/${currentUser.id}`,
-                    `${API_BASE_URL}/user-stats/${currentUser.id}`,
-                    `${API_BASE_URL}/attempted-quizzes/${currentUser.id}`,
+                    `${API_BASE_URL}/upcoming-quizzes?student_id=${currentUser.id}`,
+                    `${API_BASE_URL}/user-stats?student_id=${currentUser.id}`,
+                    `${API_BASE_URL}/attempted-quizzes?student_id=${currentUser.id}`,
                 ];
 
                 const [upcomingResponse, statsResponse, attemptedResponse] = await Promise.all(
@@ -315,7 +315,7 @@ function TakeQuizContent({ currentUser }) {
             }
 
             const attemptCheckResponse = await axios.get(
-                `${API_BASE_URL}/check-quiz-attempt/${code}/${currentUser.id}`
+                `${API_BASE_URL}/check-quiz-attempt?quiz_code=${code}&student_id=${currentUser.id}`
             );
             if (attemptCheckResponse.data.hasAttempted) {
                 setError(attemptCheckResponse.data.message);
@@ -323,7 +323,7 @@ function TakeQuizContent({ currentUser }) {
                 return;
             }
 
-            const response = await axios.get(`${API_BASE_URL}/quizzes/${code}`);
+            const response = await axios.get(`${API_BASE_URL}/quizzes?code=${code}`);
             setQuizData(response.data);
             setShowQuizCodeInput(false);
         } catch (err) {
@@ -468,7 +468,7 @@ function ResultsContent({ currentUser, setActiveTab }) {
             setLoading(true);
             setError('');
             try {
-                const response = await axios.get(`${API_BASE_URL}/quiz-result/${code}/${currentUser.id}`);
+                const response = await axios.get(`${API_BASE_URL}/quiz-result?quiz_code=${code}&student_id=${currentUser.id}`);
                 if (response.status !== 200) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
@@ -644,7 +644,7 @@ function LeaderboardContent({ currentUser }) {
         setLoading(true);
         setError('');
         try {
-            const response = await axios.get(`${API_BASE_URL}/quiz-results/${code}/leaderboard`);
+            const response = await axios.get(`${API_BASE_URL}/quiz-results/leaderboard?quiz_code=${code}`);
             if (response.status !== 200) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
@@ -771,7 +771,7 @@ function SettingsContent({ currentUser }) {
         setIsLoading(true);
         setMessage('');
         try {
-            const response = await axios.post('http://localhost:3000/change-password', {
+            const response = await axios.post(`${API_BASE_URL}/change-password`, {
                 ...formData,
                 username: currentUser.username,
                 userType: 'student',
@@ -799,7 +799,7 @@ function SettingsContent({ currentUser }) {
         setIsLoading(true);
         setMessage('');
         try {
-            const response = await axios.put(`http://localhost:3000/api/students/${currentUser.id}`, {
+            const response = await axios.put(`${API_BASE_URL}/students/${currentUser.id}`, {
                 ...profileData
             });
 
