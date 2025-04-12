@@ -25,8 +25,9 @@ exports.handler = async (event) => {
                 attempt_id,
                 quiz_id,
                 score,
+                total_questions,
                 completed_at,
-                quiz:quizzes!quiz_attempts_quiz_id_fkey (
+                quiz:quizzes (
                     quiz_name,
                     quiz_code,
                     created_by,
@@ -63,6 +64,7 @@ exports.handler = async (event) => {
                 quiz_name: attempt.quiz?.quiz_name || '',
                 quiz_code: attempt.quiz?.quiz_code || '',
                 score: attempt.score,
+                total_questions: attempt.total_questions,
                 completed_at: attempt.completed_at,
                 due_date: attempt.quiz?.due_date || '',
                 created_at: attempt.quiz?.created_at || '',

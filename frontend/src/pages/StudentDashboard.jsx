@@ -148,66 +148,48 @@ function HomeContent({ currentUser, setActiveTab }) {
     const [upcomingQuizzes, setUpcomingQuizzes] = useState([]);
     const [attemptedQuizzes, setAttemptedQuizzes] = useState([]);
     const [stats, setStats] = useState({
-        totalQuizzes: 0,
-        averageScore: 0,
-        totalTeachers: 0
+        total_attempts: 0,
+        average_score: 0,
+        completed_quizzes: 0
     });
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
+    const [error, setError] = useState('');
     const navigate = useNavigate();
 
     useEffect(() => {
-        const fetchDashboardData = async () => {
+        const fetchHomeData = async () => {
             try {
                 setLoading(true);
-                setError(null);
+                setError('');
+                if (!currentUser?.id) {
+                    throw new Error('Invalid user session');
+                }
 
-                const [upcomingResponse, attemptedResponse, statsResponse] = await Promise.all([
-                    axios.get(`${API_BASE_URL}/upcoming-quizzes?student_id=${currentUser.id}`),
-                    axios.get(`${API_BASE_URL}/attempted-quizzes?student_id=${currentUser.id}`),
-                    axios.get(`${API_BASE_URL}/user-stats?student_id=${currentUser.id}`)
-                ]);
+                const studentId = typeof currentUser.id === 'object' ? currentUser.id.toString() : currentUser.id;
 
-                // Transform upcoming quizzes data
-                const upcomingData = upcomingResponse.data.quizzes.map(quiz => ({
-                    id: quiz.quiz_id,
-                    title: quiz.quiz_name,
-                    code: quiz.quiz_code,
-                    dueDate: quiz.due_date,
-                    teacher: {
-                        name: quiz.teacher_login?.username || '',
-                        email: quiz.teacher_login?.email || ''
-                    },
-                    isAttempted: quiz.is_attempted
-                }));
+                const endpoints = [
+                    `${API_BASE_URL}/upcoming-quizzes?student_id=${studentId}`,
+                    `${API_BASE_URL}/user-stats?student_id=${studentId}`,
+                    `${API_BASE_URL}/attempted-quizzes?student_id=${studentId}`,
+                ];
 
-                // Transform attempted quizzes data
-                const attemptedData = attemptedResponse.data.quizzes.map(quiz => ({
-                    id: quiz.quiz_id,
-                    title: quiz.quiz_name,
-                    code: quiz.quiz_code,
-                    score: quiz.score,
-                    completedAt: quiz.completed_at,
-                    dueDate: quiz.due_date,
-                    teacher: {
-                        name: quiz.teacher_login?.username || '',
-                        email: quiz.teacher_login?.email || ''
-                    }
-                }));
+                const [upcomingResponse, statsResponse, attemptedResponse] = await Promise.all(
+                    endpoints.map((url) => axios.get(url))
+                );
 
-                setUpcomingQuizzes(upcomingData);
-                setAttemptedQuizzes(attemptedData);
-                setStats(statsResponse.data);
+                setUpcomingQuizzes(upcomingResponse.data);
+                setStats(statsResponse.data || { total_attempts: 0, average_score: 0, completed_quizzes: 0 });
+                setAttemptedQuizzes(attemptedResponse.data);
             } catch (err) {
+                setError('Failed to load dashboard data.');
                 console.error('Error fetching dashboard data:', err);
-                setError('Failed to load dashboard data. Please try again later.');
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchDashboardData();
-    }, [currentUser.id]);
+        fetchHomeData();
+    }, [currentUser]);
 
     const handleUpcomingQuizClick = (quizCode) => {
         setActiveTab('take quiz');
@@ -220,11 +202,7 @@ function HomeContent({ currentUser, setActiveTab }) {
     };
 
     if (loading) {
-        return (
-            <div className="content">
-                <h2>Loading dashboard data...</h2>
-            </div>
-        );
+        return <div className="loading-screen">Loading dashboard...</div>;
     }
 
     return (
@@ -242,15 +220,15 @@ function HomeContent({ currentUser, setActiveTab }) {
                         <div className="stats-grid">
                             <div className="stat-card">
                                 <h4>Total Attempts</h4>
-                                <p>{stats.totalQuizzes}</p>
+                                <p>{stats.total_attempts}</p>
                             </div>
                             <div className="stat-card">
                                 <h4>Average Score</h4>
-                                <p>{(stats.averageScore || 0).toFixed(1)}%</p>
+                                <p>{(stats.average_score || 0).toFixed(1)}%</p>
                             </div>
                             <div className="stat-card">
                                 <h4>Completed Quizzes</h4>
-                                <p>{stats.totalQuizzes}</p>
+                                <p>{stats.completed_quizzes}</p>
                             </div>
                         </div>
                     </div>
@@ -263,18 +241,18 @@ function HomeContent({ currentUser, setActiveTab }) {
                             <div className="quiz-list">
                                 {upcomingQuizzes.map((quiz) => (
                                     <div
-                                        key={quiz.id}
+                                        key={quiz.quiz_id}
                                         className="quiz-card clickable"
-                                        onClick={() => handleUpcomingQuizClick(quiz.code)}
+                                        onClick={() => handleUpcomingQuizClick(quiz.quiz_code)}
                                     >
                                         <div className="flex items-center justify-between">
                                             <div>
-                                                <h3 className="text-lg font-medium text-gray-900">{quiz.title}</h3>
-                                                <p className="text-sm text-gray-500">Code: {quiz.code}</p>
+                                                <h3 className="text-lg font-medium text-gray-900">{quiz.quiz_name}</h3>
+                                                <p className="text-sm text-gray-500">Code: {quiz.quiz_code}</p>
                                             </div>
                                             <div className="text-right">
-                                                <p className="text-sm text-gray-500">Due: {new Date(quiz.dueDate).toLocaleString()}</p>
-                                                <p className="text-sm text-gray-500">Teacher: {quiz.teacher.name}</p>
+                                                <p className="text-sm text-gray-500">Due: {new Date(quiz.due_date).toLocaleString()}</p>
+                                                <p className="text-sm text-gray-500">Teacher: {quiz.teacher_login.username}</p>
                                             </div>
                                         </div>
                                     </div>
@@ -291,18 +269,18 @@ function HomeContent({ currentUser, setActiveTab }) {
                             <div className="quiz-list">
                                 {attemptedQuizzes.map((quiz) => (
                                     <div
-                                        key={quiz.id}
+                                        key={quiz.quiz_id}
                                         className="quiz-card clickable"
-                                        onClick={() => handleAttemptedQuizClick(quiz.code)}
+                                        onClick={() => handleAttemptedQuizClick(quiz.quiz_code)}
                                     >
                                         <div className="flex items-center justify-between">
                                             <div>
-                                                <h3 className="text-lg font-medium text-gray-900">{quiz.title}</h3>
-                                                <p className="text-sm text-gray-500">Code: {quiz.code}</p>
+                                                <h3 className="text-lg font-medium text-gray-900">{quiz.quiz_name}</h3>
+                                                <p className="text-sm text-gray-500">Code: {quiz.quiz_code}</p>
                                             </div>
                                             <div className="text-right">
-                                                <p className="text-sm text-gray-500">Score: {quiz.score}/{quiz.totalQuestions}</p>
-                                                <p className="text-sm text-gray-500">Teacher: {quiz.teacher.name}</p>
+                                                <p className="text-sm text-gray-500">Score: {quiz.score}/{quiz.total_questions}</p>
+                                                <p className="text-sm text-gray-500">Teacher: {quiz.teacher_login.username}</p>
                                             </div>
                                         </div>
                                     </div>

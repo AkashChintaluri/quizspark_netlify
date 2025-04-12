@@ -42,7 +42,7 @@ exports.handler = async (event) => {
                 questions,
                 due_date,
                 created_at,
-                teacher:teacher_login!quizzes_created_by_fkey (
+                teacher_login (
                     id,
                     username,
                     email
@@ -80,9 +80,9 @@ exports.handler = async (event) => {
                 due_date: quiz.due_date,
                 created_at: quiz.created_at,
                 teacher_login: {
-                    id: quiz.teacher?.id || '',
-                    username: quiz.teacher?.username || '',
-                    email: quiz.teacher?.email || ''
+                    id: quiz.teacher_login?.id || '',
+                    username: quiz.teacher_login?.username || '',
+                    email: quiz.teacher_login?.email || ''
                 },
                 is_attempted: attemptedQuizIds.has(quiz.id)
             }))
