@@ -18,89 +18,40 @@ exports.handler = async (event) => {
             return createErrorResponse(400, 'student_id is required');
         }
 
-        // Get all quiz attempts for the student
-        const { data: attempts, error: attemptError } = await supabase
+        // Get total quizzes attempted
+        const { data: attempts, error: attemptsError } = await supabase
             .from('quiz_attempts')
-            .select(`
-                id,
-                score,
-                total_questions,
-                time_taken,
-                answers,
-                is_completed,
-                quiz:quizzes (
-                    quiz_id,
-                    quiz_name,
-                    created_by,
-                    questions,
-                    due_date,
-                    created_at,
-                    teacher:teacher_login (
-                        id,
-                        username,
-                        email,
-                        password
-                    )
-                )
-            `)
+            .select('attempt_id, quiz_id, score, total_questions')
             .eq('user_id', student_id)
-            .eq('is_completed', true)
-            .order('time_taken', { ascending: false });
+            .eq('is_completed', true);
 
-        if (attemptError) {
-            console.error('Attempts fetch error:', attemptError);
+        if (attemptsError) {
+            console.error('Error fetching quiz attempts:', attemptsError);
             return createErrorResponse(500, 'Failed to fetch quiz attempts');
         }
 
+        // Get unique teachers subscribed to
+        const { data: subscriptions, error: subsError } = await supabase
+            .from('subscriptions')
+            .select('teacher_id')
+            .eq('student_id', student_id);
+
+        if (subsError) {
+            console.error('Error fetching subscriptions:', subsError);
+            return createErrorResponse(500, 'Failed to fetch subscriptions');
+        }
+
         // Calculate statistics
-        const totalAttempts = attempts.length;
+        const totalQuizzes = attempts.length;
+        const totalTeachers = new Set(subscriptions.map(sub => sub.teacher_id)).size;
         const totalScore = attempts.reduce((sum, attempt) => sum + attempt.score, 0);
-        const averageScore = totalAttempts > 0 ? totalScore / totalAttempts : 0;
-
-        // Get unique teachers
-        const teacherIds = new Set(attempts.map(a => a.quiz.created_by));
-        const uniqueTeachers = teacherIds.size;
-
-        // Get recent performance trend (last 5 attempts)
-        const recentAttempts = attempts.slice(0, 5);
-        const performanceTrend = recentAttempts.map(attempt => ({
-            quiz_title: attempt.quiz.quiz_name,
-            score: attempt.score,
-            completed_at: attempt.time_taken
-        }));
-
-        // Calculate score distribution
-        const scoreDistribution = {
-            excellent: attempts.filter(a => a.score >= 90).length,
-            good: attempts.filter(a => a.score >= 70 && a.score < 90).length,
-            average: attempts.filter(a => a.score >= 50 && a.score < 70).length,
-            poor: attempts.filter(a => a.score < 50).length
-        };
-
-        // Get best and worst performances
-        const bestAttempt = attempts.reduce((best, current) => 
-            current.score > (best?.score || 0) ? current : best, null);
-        const worstAttempt = attempts.reduce((worst, current) => 
-            current.score < (worst?.score || 100) ? current : worst, null);
+        const totalQuestions = attempts.reduce((sum, attempt) => sum + attempt.total_questions, 0);
+        const averageScore = totalQuizzes > 0 ? (totalScore / totalQuestions * 100).toFixed(2) : 0;
 
         return createSuccessResponse({
-            overview: {
-                total_attempts: totalAttempts,
-                average_score: Math.round(averageScore * 100) / 100,
-                unique_teachers: uniqueTeachers
-            },
-            score_distribution: scoreDistribution,
-            performance_trend: performanceTrend,
-            best_performance: bestAttempt ? {
-                quiz_title: bestAttempt.quiz.quiz_name,
-                score: bestAttempt.score,
-                completed_at: bestAttempt.time_taken
-            } : null,
-            worst_performance: worstAttempt ? {
-                quiz_title: worstAttempt.quiz.quiz_name,
-                score: worstAttempt.score,
-                completed_at: worstAttempt.time_taken
-            } : null
+            total_quizzes: totalQuizzes,
+            total_teachers: totalTeachers,
+            average_score: parseFloat(averageScore)
         });
 
     } catch (error) {
