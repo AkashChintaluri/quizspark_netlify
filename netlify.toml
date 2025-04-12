@@ -6,6 +6,7 @@ functions = "functions"
 [functions]
 directory = "functions"
 node_bundler = "esbuild"
+included_files = ["supabase.js"]
 
 [[redirects]]
 from = "/api/*"
@@ -19,3 +20,5 @@ status = 200
 
 [build.environment]
 NODE_VERSION = "18"
+SUPABASE_URL = "https://qjqjqjqjqjqjqjqjqjqj.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFqcWpxanFqcWpxanFqcWpxanFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE2MjM5NjE2MjAsImV4cCI6MTkzOTUzNzYyMH0.0QYQYQYQYQYQYQYQYQYQYQYQYQYQYQYQYQYQYQYQYQ"
