@@ -873,7 +873,7 @@ function SettingsContent({ currentUser, setCurrentUser }) {
         setIsLoading(true);
         setMessage('');
         try {
-            const response = await axios.put(`/.netlify/functions/student-password-put/${currentUser.id}`, {
+            const response = await axios.put(`/api/student-password-put/${currentUser.id}`, {
                 currentPassword: formData.currentPassword,
                 newPassword: formData.newPassword
             });
