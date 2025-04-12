@@ -2,7 +2,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
 
 .teacher-list {
-    max-width: 800px;
+    max-width: 1200px;
     margin: 1rem auto;
     padding: 1rem;
     background: linear-gradient(135deg, #edf2f7 0%, #ffffff 100%);
@@ -254,4 +254,21 @@
     .dropdown-menu {
         padding: 0.75rem;
     }
+}
+
+.success-message {
+    text-align: center;
+    font-size: 1rem;
+    color: #2f855a;
+    padding: 1rem;
+    background: linear-gradient(90deg, #c6f6d5 0%, #9ae6b4 100%);
+    border-radius: 8px;
+    margin: 1rem 0;
+    box-shadow: 0 2px 4px rgba(47, 133, 90, 0.1);
+    animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
 }

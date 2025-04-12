@@ -101,12 +101,9 @@ function TeacherLogin() {
                         {isLoading ? 'Logging In...' : 'Login'}
                     </button>
                 </form>
-                <p>
-                    Don't have an account?{' '}
-                    <a href="/signup" className="signup-link">
-                        Sign up here
-                    </a>
-                </p>
+                <div className="signup-link">
+                    <p>Don't have an account? <a href="/teacher-signup">Sign up here</a></p>
+                </div>
             </div>
             {showPopup && (
                 <div className="popup success">
@@ -118,3 +115,25 @@ function TeacherLogin() {
 }
 
 export default TeacherLogin;
+
+<style jsx>{`
+    .signup-link {
+        text-align: center;
+        margin-top: 20px;
+        padding: 10px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+    }
+    
+    .signup-link a {
+        color: #4CAF50;
+        text-decoration: none;
+        font-weight: 600;
+        transition: color 0.3s ease;
+    }
+    
+    .signup-link a:hover {
+        color: #45a049;
+        text-decoration: underline;
+    }
+`}</style>

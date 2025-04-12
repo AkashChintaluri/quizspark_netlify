@@ -12,6 +12,8 @@ function TeacherList({ studentId }) {
     const [searchTerm, setSearchTerm] = useState('');
     const [subscriptions, setSubscriptions] = useState(new Set());
     const [message, setMessage] = useState('');
+    const [showSuccess, setShowSuccess] = useState(false);
+    const [selectedTeacher, setSelectedTeacher] = useState(null);
 
     useEffect(() => {
         if (studentId) {
@@ -67,6 +69,8 @@ function TeacherList({ studentId }) {
             if (response.data?.success) {
                 setMessage('Successfully subscribed to teacher');
                 setSubscriptions(prev => new Set([...prev, teacherId]));
+                setShowSuccess(true);
+                setSelectedTeacher(teachers.find(t => t.id === teacherId));
             } else {
                 throw new Error(response.data?.error || 'Failed to subscribe');
             }
@@ -121,6 +125,12 @@ function TeacherList({ studentId }) {
         <div className="teacher-list">
             {error && <div className="error-message">{error}</div>}
             {message && <div className="success-message">{message}</div>}
+
+            {showSuccess && (
+                <div className="success-message">
+                    <p>🎉 Successfully subscribed to {selectedTeacher?.username}! You can now access their content.</p>
+                </div>
+            )}
 
             <h3>Your Teachers</h3>
             {subscribedTeachers.length === 0 ? (
