@@ -9,7 +9,7 @@ function SignupForm() {
         username: '',
         email: '',
         password: '',
-        userType: 'student',
+        userType: '', // Changed from 'student' to '' to match placeholder
     });
     const [isLoading, setIsLoading] = useState(false);
     const [showPopup, setShowPopup] = useState(false);
@@ -25,7 +25,7 @@ function SignupForm() {
             }, 2000);
             return () => clearTimeout(timer);
         }
-    }, [showPopup, navigate]);
+    }, [showPopup, navigate, formData.userType]);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -35,9 +35,9 @@ function SignupForm() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        const { username, email, password } = formData;
+        const { username, email, password, userType } = formData;
 
-        if (!username.trim() || !email.trim() || !password.trim()) {
+        if (!username.trim() || !email.trim() || !password.trim() || !userType) {
             setErrorMessage('All fields are required');
             return;
         }
@@ -50,7 +50,7 @@ function SignupForm() {
                 username: username.trim(),
                 email: email.trim(),
                 password: password.trim(),
-                userType: formData.userType
+                userType: userType
             });
 
             setShowPopup(true);
@@ -108,12 +108,13 @@ function SignupForm() {
                     <div className="form-group">
                         <select
                             id="userType"
+                            name="userType" // Added name attribute to match handleInputChange
                             value={formData.userType}
                             onChange={handleInputChange}
                             required
-                            className={!formData.userType ? 'placeholder' : ''}
+                            className={formData.userType === '' ? 'placeholder' : ''}
                         >
-                            <option value="">I am a</option>
+                            <option value="" disabled>I am</option>
                             <option value="student">Student</option>
                             <option value="teacher">Teacher</option>
                         </select>
