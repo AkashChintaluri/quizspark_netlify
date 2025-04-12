@@ -1,24 +1,34 @@
-const { 
-    supabase, 
-    handleCors, 
-    createErrorResponse, 
-    createSuccessResponse 
-} = require('./supabase-client');
+const supabase = require('./supabase');
 
 exports.handler = async (event) => {
+    // Set CORS headers
+    const headers = {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Content-Type': 'application/json'
+    };
+
+    // Handle preflight requests
     if (event.httpMethod === 'OPTIONS') {
-        return handleCors();
+        return {
+            statusCode: 200,
+            headers
+        };
     }
 
     try {
-        const body = event.isBase64Encoded
-            ? Buffer.from(event.body, 'base64').toString('utf8')
-            : event.body;
-        const { student_id, teacher_id } = JSON.parse(body);
+        const { student_id, teacher_id } = JSON.parse(event.body);
 
         // Validate input
         if (!student_id || !teacher_id) {
-            return createErrorResponse(400, 'student_id and teacher_id are required');
+            return {
+                statusCode: 400,
+                headers,
+                body: JSON.stringify({
+                    success: false,
+                    error: 'student_id and teacher_id are required'
+                })
+            };
         }
 
         // Check if subscription already exists
@@ -31,11 +41,25 @@ exports.handler = async (event) => {
 
         if (checkError && checkError.code !== 'PGRST116') {
             console.error('Subscription check error:', checkError);
-            return createErrorResponse(500, 'Failed to check existing subscription');
+            return {
+                statusCode: 500,
+                headers,
+                body: JSON.stringify({
+                    success: false,
+                    error: 'Failed to check existing subscription'
+                })
+            };
         }
 
         if (existingSub) {
-            return createErrorResponse(400, 'Already subscribed to this teacher');
+            return {
+                statusCode: 400,
+                headers,
+                body: JSON.stringify({
+                    success: false,
+                    error: 'Already subscribed to this teacher'
+                })
+            };
         }
 
         // Create subscription
@@ -51,21 +75,41 @@ exports.handler = async (event) => {
 
         if (createError) {
             console.error('Subscribe error:', createError);
-            return createErrorResponse(500, 'Failed to subscribe to teacher');
+            return {
+                statusCode: 500,
+                headers,
+                body: JSON.stringify({
+                    success: false,
+                    error: 'Failed to subscribe to teacher'
+                })
+            };
         }
 
-        return createSuccessResponse({
-            message: 'Successfully subscribed to teacher',
-            subscription: {
-                id: subscription.id,
-                student_id: subscription.student_id,
-                teacher_id: subscription.teacher_id,
-                subscribed_at: subscription.subscribed_at
-            }
-        });
+        return {
+            statusCode: 200,
+            headers,
+            body: JSON.stringify({
+                success: true,
+                message: 'Successfully subscribed to teacher',
+                subscription: {
+                    id: subscription.id,
+                    student_id: subscription.student_id,
+                    teacher_id: subscription.teacher_id,
+                    subscribed_at: subscription.subscribed_at
+                }
+            })
+        };
 
     } catch (error) {
         console.error('Subscribe error:', error);
-        return createErrorResponse(500, 'Internal server error', error.message);
+        return {
+            statusCode: 500,
+            headers,
+            body: JSON.stringify({
+                success: false,
+                error: 'Internal server error',
+                details: error.message
+            })
+        };
     }
 };
