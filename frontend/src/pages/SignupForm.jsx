@@ -105,12 +105,12 @@ function SignupForm() {
                             disabled={isLoading}
                         />
                     </div>
-                    <div className="form-group select-group">
+                    <div className="form-group">
                         <select
-                            name="userType"
+                            id="userType"
                             value={formData.userType}
                             onChange={handleInputChange}
-                            disabled={isLoading}
+                            required
                             className={!formData.userType ? 'placeholder' : ''}
                         >
                             <option value="">I am a</option>
