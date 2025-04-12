@@ -3,14 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import './Login.css';
 
-function TeacherLogin() {
+function TeacherLogin({ setUser }) {
     const navigate = useNavigate();
     const [formData, setFormData] = useState({ username: '', password: '' });
     const [isLoading, setIsLoading] = useState(false);
     const [showPopup, setShowPopup] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
 
-    const BASE_URL = process.env.REACT_APP_API_BASE_PATH || '/api';
+    const BASE_URL = import.meta.env.VITE_API_BASE_PATH || '/api';
 
     useEffect(() => {
         if (showPopup) {
@@ -49,12 +49,14 @@ function TeacherLogin() {
 
             if (response.data.success) {
                 const { id, username, userType } = response.data.user;
+                const formattedId = typeof id === 'object' ? id.toString() : id;
                 const userData = { 
-                    id, 
+                    id: formattedId, 
                     username, 
                     role: 'teacher'
                 };
                 localStorage.setItem('user', JSON.stringify(userData));
+                setUser(userData);
                 setShowPopup(true);
             } else {
                 setErrorMessage(response.data.message || 'Invalid username or password');
@@ -101,9 +103,12 @@ function TeacherLogin() {
                         {isLoading ? 'Logging In...' : 'Login'}
                     </button>
                 </form>
-                <div className="signup-link">
-                    <p>Don't have an account? <a href="/teacher-signup">Sign up here</a></p>
-                </div>
+                <p className="signup-text">
+                    Don't have an account?{' '}
+                    <a href="/signup" className="signup-link">
+                        Sign up here
+                    </a>
+                </p>
             </div>
             {showPopup && (
                 <div className="popup success">

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import './Login.css';
 
-function StudentLogin() {
+function StudentLogin({ setUser }) {
     const navigate = useNavigate();
     const [formData, setFormData] = useState({ username: '', password: '' });
     const [isLoading, setIsLoading] = useState(false);
@@ -56,6 +56,7 @@ function StudentLogin() {
                     role: 'student'
                 };
                 localStorage.setItem('user', JSON.stringify(userData));
+                setUser(userData);
                 setShowPopup(true);
             } else {
                 setErrorMessage(response.data.message || 'Invalid username or password');
