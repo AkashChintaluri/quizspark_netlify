@@ -49,7 +49,12 @@ function TeacherLogin() {
 
             if (response.data.success) {
                 const { id, username, userType } = response.data.user;
-                localStorage.setItem('user', JSON.stringify({ id, username, userType }));
+                const userData = { 
+                    id, 
+                    username, 
+                    role: userType // Changed from userType to role to match App.jsx
+                };
+                localStorage.setItem('user', JSON.stringify(userData));
                 setShowPopup(true);
             } else {
                 setErrorMessage(response.data.message || 'Invalid username or password');

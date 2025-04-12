@@ -50,11 +50,12 @@ function StudentLogin() {
             if (response.data.success) {
                 const { id, username, userType } = response.data.user;
                 const formattedId = typeof id === 'object' ? id.toString() : id;
-                localStorage.setItem('user', JSON.stringify({ 
+                const userData = { 
                     id: formattedId, 
                     username, 
-                    userType 
-                }));
+                    role: userType // Changed from userType to role to match App.jsx
+                };
+                localStorage.setItem('user', JSON.stringify(userData));
                 setShowPopup(true);
             } else {
                 setErrorMessage(response.data.message || 'Invalid username or password');
