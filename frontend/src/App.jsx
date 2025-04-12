@@ -10,7 +10,7 @@ import SignupForm from './pages/SignupForm';
 import StudentDashboard from './pages/StudentDashboard';
 import TeacherDashboard from './pages/TeacherDashboard';
 import Header from './components/Header';
-import TakeQuiz from './pages/TakeQuiz';
+import TeacherList from './pages/TeacherList';
 
 const Layout = ({ children }) => {
     return (
@@ -79,7 +79,7 @@ function App() {
                             } 
                         />
 
-                        <Route path="/take-quiz/:quizCode" element={<TakeQuiz />} />
+                        <Route path="/teacher-list" element={<Layout><TeacherList /></Layout>} />
 
                         <Route path="*" element={<Navigate to="/" replace />} />
                     </Routes>
