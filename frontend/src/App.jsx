@@ -1,7 +1,7 @@
 // src/App.jsx
 import './App.css';
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { ChakraProvider } from '@chakra-ui/react';
 import Home from './pages/Home';
 import StudentLogin from './pages/StudentLogin';
@@ -29,6 +29,8 @@ const Layout = ({ children }) => {
 function App() {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
+    const navigate = useNavigate();
+    const location = useLocation();
 
     useEffect(() => {
         const storedUser = localStorage.getItem('user');
@@ -36,11 +38,12 @@ function App() {
             try {
                 const parsedUser = JSON.parse(storedUser);
                 setUser(parsedUser);
-                // Redirect to appropriate dashboard if user is logged in
+                
+                // Only redirect if we're not already on the correct dashboard
                 if (parsedUser?.role) {
-                    const currentPath = window.location.pathname;
+                    const currentPath = location.pathname;
                     if (!currentPath.includes(`${parsedUser.role}-dashboard`)) {
-                        window.location.href = `/${parsedUser.role}-dashboard`;
+                        navigate(`/${parsedUser.role}-dashboard`, { replace: true });
                     }
                 }
             } catch (error) {
@@ -49,7 +52,7 @@ function App() {
             }
         }
         setLoading(false);
-    }, []);
+    }, [navigate, location]);
 
     if (loading) {
         return <div>Loading...</div>;
