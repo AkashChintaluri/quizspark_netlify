@@ -1,5 +1,5 @@
 [build]
-command = "cd frontend && npm run build"
+command = "cd frontend && npm install && npm run build"
 publish = "frontend/dist"
 functions = "functions"
 
@@ -8,76 +8,9 @@ directory = "functions"
 node_bundler = "esbuild"
 
 [[redirects]]
-from = "/api/students/*"
-to = "/.netlify/functions/students/:splat"
+from = "/api/*"
+to = "/.netlify/functions/:splat"
 status = 200
-force = true
-
-[[redirects]]
-from = "/api/student/*"
-to = "/.netlify/functions/student/:splat"
-status = 200
-force = true
-
-[[redirects]]
-from = "/api/quiz/*"
-to = "/.netlify/functions/quiz/:splat"
-status = 200
-force = true
-
-[[redirects]]
-from = "/api/quizzes/*"
-to = "/.netlify/functions/quizzes/:splat"
-status = 200
-force = true
-
-[[redirects]]
-from = "/api/attempted-quizzes"
-to = "/.netlify/functions/attempted-quizzes"
-status = 200
-force = true
-
-[[redirects]]
-from = "/api/upcoming-quizzes"
-to = "/.netlify/functions/upcoming-quizzes"
-status = 200
-force = true
-
-[[redirects]]
-from = "/api/user-stats"
-to = "/.netlify/functions/user-stats"
-status = 200
-force = true
-
-[[redirects]]
-from = "/api/quiz-results-leaderboard"
-to = "/.netlify/functions/quiz-results-leaderboard"
-status = 200
-force = true
-
-[[redirects]]
-from = "/api/retest-requests/*"
-to = "/.netlify/functions/retest-requests/:splat"
-status = 200
-force = true
-
-[[redirects]]
-from = "/api/teachers"
-to = "/.netlify/functions/teachers"
-status = 200
-force = true
-
-[[redirects]]
-from = "/api/subscriptions/*"
-to = "/.netlify/functions/subscriptions/:splat"
-status = 200
-force = true
-
-[[redirects]]
-from = "/api/login"
-to = "/.netlify/functions/login"
-status = 200
-force = true
 
 [[redirects]]
 from = "/*"
