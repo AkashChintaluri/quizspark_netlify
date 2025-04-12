@@ -220,7 +220,9 @@ function Content({ activeTab, setActiveTab, currentUser, location, setCurrentUse
     console.log('Content rendering with:', { pathname, quizCode, activeTab });
 
     if (pathname.includes('/take-quiz/')) {
-        return <TakeQuizContent currentUser={currentUser} />;
+        const code = pathname.split('/take-quiz/')[1];
+        console.log('Rendering TakeQuizContent with code:', code);
+        return <TakeQuizContent currentUser={currentUser} quizCode={code} />;
     }
 
     if (pathname.includes('/quiz/')) {
@@ -256,7 +258,8 @@ function HomeContent({ currentUser, setActiveTab }) {
     const navigate = useNavigate();
 
     const handleQuizClick = (quizCode) => {
-        navigate(`/student-dashboard/take-quiz/${quizCode}`);
+        console.log('Quiz clicked with code:', quizCode);
+        navigate(`/student-dashboard/take-quiz/${quizCode}`, { replace: true });
     };
 
     useEffect(() => {
@@ -419,7 +422,7 @@ function HomeContent({ currentUser, setActiveTab }) {
     );
 }
 
-function TakeQuizContent({ currentUser }) {
+function TakeQuizContent({ currentUser, quizCode }) {
     const [quizData, setQuizData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -428,7 +431,6 @@ function TakeQuizContent({ currentUser }) {
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [score, setScore] = useState(0);
     const navigate = useNavigate();
-    const { quizCode } = useParams();
 
     console.log('TakeQuizContent rendering with quizCode:', quizCode);
 
