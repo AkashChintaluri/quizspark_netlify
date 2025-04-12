@@ -216,10 +216,6 @@ function HomeContent({ currentUser, setActiveTab }) {
                 <div className="error-message">{error}</div>
             ) : (
                 <>
-                    <div className="dashboard-header">
-                        <h2>Welcome, {currentUser?.username}!</h2>
-                    </div>
-
                     <div className="stats-section">
                         <h3>Your Statistics</h3>
                         <div className="stats-grid">
