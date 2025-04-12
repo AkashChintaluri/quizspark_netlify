@@ -128,9 +128,10 @@ function StudentDashboard() {
     const handleSubmitQuiz = async () => {
         try {
             const response = await axios.post(`${API_BASE_URL}/submit-quiz`, {
-                quiz_id: currentQuiz.quiz_id,
+                quiz_id: currentQuiz.id,
                 student_id: currentUser.id,
-                answers: answers
+                answers: answers,
+                time_taken: timeLeft
             });
             
             if (response.data.success) {
@@ -139,7 +140,7 @@ function StudentDashboard() {
                 // Refresh quizzes list
                 const quizzesResponse = await axios.get(`${API_BASE_URL}/upcoming-quizzes?student_id=${currentUser.id}`);
                 if (quizzesResponse.data?.quizzes) {
-                    setQuizzes(quizzesResponse.data.quizzes);
+                    setQuizzes(quizzesResponse.data.quizzes.map(transformQuizData));
                 }
             }
         } catch (err) {
@@ -291,6 +292,10 @@ function HomeContent({ currentUser, setActiveTab }) {
     const [error, setError] = useState('');
     const navigate = useNavigate();
 
+    const handleQuizClick = (quizCode) => {
+        navigate(`/student-dashboard/take-quiz/${quizCode}`);
+    };
+
     useEffect(() => {
         const fetchHomeData = async () => {
             try {
@@ -312,14 +317,20 @@ function HomeContent({ currentUser, setActiveTab }) {
                     endpoints.map((url) => axios.get(url))
                 );
 
-                // Ensure we have arrays for quizzes
-                const upcomingData = upcomingResponse.data?.quizzes || [];
-                const attemptedData = attemptedResponse.data?.quizzes || [];
-                const statsData = statsResponse.data || { total_attempts: 0, average_score: 0, completed_quizzes: 0 };
+                // Transform quiz data to match frontend expectations
+                const transformQuizData = (quiz) => ({
+                    ...quiz,
+                    questions: quiz.questions?.questions || [],
+                    teacher_login: {
+                        id: quiz.created_by,
+                        username: quiz.teacher_login?.username || 'Unknown Teacher'
+                    }
+                });
 
-                setUpcomingQuizzes(Array.isArray(upcomingData) ? upcomingData : []);
-                setAttemptedQuizzes(Array.isArray(attemptedData) ? attemptedData : []);
-                setStats(statsData);
+                // Transform and set the data
+                setUpcomingQuizzes((upcomingResponse.data?.quizzes || []).map(transformQuizData));
+                setAttemptedQuizzes((attemptedResponse.data?.quizzes || []).map(transformQuizData));
+                setStats(statsResponse.data || { total_attempts: 0, average_score: 0, completed_quizzes: 0 });
             } catch (err) {
                 setError('Failed to load dashboard data.');
                 console.error('Error fetching dashboard data:', err);
@@ -554,7 +565,8 @@ function TakeQuizContent({ currentUser }) {
             const response = await axios.post(`${API_BASE_URL}/submit-quiz`, {
                 quiz_id: currentQuiz.id,
                 student_id: currentUser.id,
-                answers: answers
+                answers: answers,
+                time_taken: timeLeft
             });
             if (response.data.success) {
                 setSuccessMessage('Quiz submitted successfully!');
@@ -758,19 +770,27 @@ function ResultsContent({ currentUser, setActiveTab }) {
 
     const handleRequestRetest = async (quizCode, attemptId) => {
         try {
+            setRetestLoading(true);
+            setRetestMessage('');
+            
             const response = await axios.post(`${API_BASE_URL}/retest-requests`, {
                 quiz_code: quizCode,
                 student_id: currentUser.id,
-                attempt_id: attemptId
+                attempt_id: attemptId,
+                request_date: new Date().toISOString()
             });
+
             if (response.data.success) {
-                setSuccessMessage('Retest request submitted successfully!');
-                setTimeout(() => setSuccessMessage(''), 3000);
+                setRetestMessage('Retest request submitted successfully!');
+                setTimeout(() => {
+                    setRetestMessage('');
+                    setRetestLoading(false);
+                }, 3000);
             }
         } catch (error) {
             console.error('Error requesting retest:', error);
-            setErrorMessage('Failed to submit retest request. Please try again.');
-            setTimeout(() => setErrorMessage(''), 3000);
+            setRetestMessage('Failed to submit retest request. Please try again.');
+            setRetestLoading(false);
         }
     };
 
