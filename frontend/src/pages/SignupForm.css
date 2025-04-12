@@ -11,134 +11,151 @@
 
 .signup-content {
     background-color: rgba(255, 255, 255, 0.9);
-    border-radius: 20px;
-    padding: 3rem;
-    max-width: 600px;
+    border-radius: 12px;
+    padding: 1.5rem;
+    max-width: 400px;
     width: 100%;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .signup-content h2 {
-    font-size: 2.5rem;
-    color: #4a4a4a;
-    margin-bottom: 1.5rem;
-    font-weight: 700;
+    font-size: 1.75rem;
+    color: #2d3748;
+    margin-bottom: 1rem;
+    font-weight: 600;
     text-align: center;
 }
 
 .signup-form {
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    gap: 1rem;
 }
 
 .form-group {
-    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
 }
 
-.form-group input,
-.form-group select {
+.form-group label {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #2d3748;
+}
+
+.form-group input {
     padding: 0.75rem;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    font-size: 1rem;
-    transition: all 0.3s ease-in-out;
-    width: 100%;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    transition: all 0.2s ease;
 }
 
-.form-group input::placeholder,
-.select-placeholder {
-    color: #aaa; /* Subtle placeholder color */
-}
-
-.form-group input:hover,
-.form-group select:hover {
-    border-color: #667eea; /* Subtle hover effect */
-}
-
-.form-group input:focus,
-.form-group select:focus {
+.form-group input:focus {
     outline: none;
-    border-color: #667eea;
-    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
-}
-
-/* Styling for the "I am a" dropdown */
-.select-group {
-    position: relative;
-}
-
-.select-placeholder {
-    position: absolute;
-    top: -1rem; /* Adjusted position */
-    left: 12px; /* Aligned with input padding */
-    background-color: white; /* Matches form background */
-    padding-left: 5px; /* Small padding for better readability */
-    padding-right: 5px; /* Matches left padding */
-    font-size: 0.9rem; /* Slightly smaller than input text */
-    color: #4a4a4a; /* Neutral color for label */
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1);
 }
 
 .signup-button {
-    background-color: #667eea;
+    background: linear-gradient(90deg, #7f9cf5 0%, #667eea 100%);
     color: white;
+    padding: 0.75rem;
     border: none;
-    border-radius: 50px;
-    padding: 1rem 2rem;
-    font-size: 1.2rem;
-    font-weight: bold;
+    border-radius: 6px;
+    font-size: 1rem;
+    font-weight: 600;
     cursor: pointer;
-    transition: all 0.25s ease-in-out;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    transition: all 0.2s ease;
+    margin-top: 0.5rem;
     text-align: center;
     width: 100%;
 }
 
 .signup-button:hover {
-    background-color: #5a6edb;
-    transform: translateY(-3px);
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+    background: linear-gradient(90deg, #667eea 0%, #5a67d8 100%);
+    transform: translateY(-1px);
 }
 
-/* Popup styling */
-.popup.success {
+.signup-button:disabled {
+    background: #a0aec0;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.error-message {
+    background: #fee2e2;
+    color: #dc2626;
+    padding: 0.75rem;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    text-align: center;
+    margin-top: 0.5rem;
+}
+
+.success-message {
+    background: #dcfce7;
+    color: #166534;
+    padding: 0.75rem;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    text-align: center;
+    margin-top: 0.5rem;
+}
+
+.login-text {
+    margin-top: 1rem;
+    text-align: center;
+    color: #4a5568;
+    font-size: 0.9rem;
+}
+
+.login-link {
+    color: #4f46e5;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.login-link:hover {
+    text-decoration: underline;
+}
+
+.popup {
     position: fixed;
     bottom: 20px;
     right: 20px;
     background-color: #48bb78;
     color: white;
-    padding: 1rem 2rem;
-    border-radius: 8px;
-    font-size: 1rem;
+    padding: 0.75rem 1.5rem;
+    border-radius: 6px;
+    font-size: 0.9rem;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    animation: fadeIn 0.3s ease-out;
+    animation: slideIn 0.3s ease-out;
 }
 
-@keyframes fadeIn {
+@keyframes slideIn {
     from {
+        transform: translateY(100%);
         opacity: 0;
-        transform: translateY(20px);
     }
     to {
-        opacity: 1;
         transform: translateY(0);
+        opacity: 1;
     }
 }
 
-/* Responsive design */
 @media (max-width: 768px) {
     .signup-content {
-        padding: 2rem;
+        padding: 1.25rem;
     }
 
     .signup-content h2 {
-        font-size: 2rem;
+        font-size: 1.5rem;
     }
 
     .signup-button {
-        font-size: 1rem;
-        padding: 0.75rem 1.5rem;
+        font-size: 0.95rem;
+        padding: 0.75rem;
     }
 }
