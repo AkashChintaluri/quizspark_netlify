@@ -129,10 +129,10 @@ function TeacherList({ studentId }) {
                     <div className="teachers-grid">
                         {subscribedTeachers.map((teacher) => (
                             <div key={teacher.id} className="teacher-card">
-                                <img src={teacher.image || 'https://via.placeholder.com/150'} alt={teacher.username} className="teacher-image" />
                                 <div className="teacher-info">
                                     <h4>{teacher.username}</h4>
                                     <p>{teacher.email}</p>
+                                    <p className="teacher-bio">{teacher.bio || 'No bio available'}</p>
                                 </div>
                                 <button
                                     className="unsubscribe-btn"
@@ -172,10 +172,10 @@ function TeacherList({ studentId }) {
                             <div className="teachers-grid">
                                 {filteredUnsubscribedTeachers.map((teacher) => (
                                     <div key={teacher.id} className="teacher-card">
-                                        <img src={teacher.image || 'https://via.placeholder.com/150'} alt={teacher.username} className="teacher-image" />
                                         <div className="teacher-info">
                                             <h4>{teacher.username}</h4>
                                             <p>{teacher.email}</p>
+                                            <p className="teacher-bio">{teacher.bio || 'No bio available'}</p>
                                         </div>
                                         <button
                                             className="subscribe-btn"
