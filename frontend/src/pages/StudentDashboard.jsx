@@ -27,6 +27,10 @@ function StudentDashboard() {
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [timeLeft, setTimeLeft] = useState(30 * 60); // 30 minutes in seconds
 
+    const handleQuizClick = (quizCode) => {
+        navigate(`/student-dashboard/take-quiz/${quizCode}`);
+    };
+
     useEffect(() => {
         const storedUser = localStorage.getItem('user');
         if (!storedUser) {
@@ -112,10 +116,6 @@ function StudentDashboard() {
         } else {
             navigate(`/student-dashboard/${tab.toLowerCase().replace(' ', '-')}`);
         }
-    };
-
-    const handleQuizClick = (quizCode) => {
-        navigate(`/student-dashboard/take-quiz/${quizCode}`);
     };
 
     const handleAnswerChange = (questionIndex, optionIndex) => {
