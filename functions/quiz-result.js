@@ -1,80 +1,111 @@
-const { Pool } = require('pg');
+const { 
+    supabase, 
+    handleCors, 
+    createErrorResponse, 
+    createSuccessResponse 
+} = require('./supabase-client');
 
-const pool = new Pool({
-    user: process.env.DB_USER,
-    host: process.env.DB_HOST,
-    database: process.env.DB_NAME,
-    password: process.env.DB_PASSWORD,
-    port: process.env.DB_PORT || 5432,
-});
-
-exports.handler = async (event, context) => {
-    if (event.httpMethod !== 'GET') {
-        return { statusCode: 405, body: 'Method Not Allowed' };
+exports.handler = async (event) => {
+    if (event.httpMethod === 'OPTIONS') {
+        return handleCors();
     }
 
-    const { quiz_code, user_id } = event.pathParameters || {};
-
     try {
-        const quizQuery = `
-      SELECT q.quiz_id, q.quiz_name, q.questions, qa.attempt_id, qa.answers, qa.score, qa.total_questions
-      FROM quizzes q
-      LEFT JOIN quiz_attempts qa ON q.quiz_id = qa.quiz_id AND qa.user_id = $2
-      WHERE q.quiz_code = $1
-      ORDER BY qa.attempt_date DESC
-      LIMIT 1
-    `;
-        const quizResult = await pool.query(quizQuery, [quiz_code, user_id]);
+        const { quiz_id, student_id } = event.queryStringParameters || {};
 
-        if (quizResult.rows.length === 0) {
-            return {
-                statusCode: 404,
-                body: JSON.stringify({ message: 'Quiz not found' }),
-                headers: { 'Content-Type': 'application/json' },
-            };
+        // Validate input
+        if (!quiz_id || !student_id) {
+            return createErrorResponse(400, 'quiz_id and student_id are required');
         }
 
-        const quizData = quizResult.rows[0];
-        const questions = quizData.questions.questions;
+        // Get quiz details and attempt
+        const { data: attempt, error: attemptError } = await supabase
+            .from('quiz_attempts')
+            .select(`
+                id,
+                score,
+                answers,
+                completed_at,
+                quizzes (
+                    id,
+                    title,
+                    description,
+                    questions,
+                    due_date,
+                    teacher_id,
+                    teachers (
+                        name,
+                        email
+                    )
+                )
+            `)
+            .eq('quiz_id', quiz_id)
+            .eq('student_id', student_id)
+            .single();
 
-        let userAnswers = {};
-        if (quizData.answers) {
-            userAnswers = typeof quizData.answers === 'string' ? JSON.parse(quizData.answers) : quizData.answers;
+        if (attemptError) {
+            console.error('Attempt fetch error:', attemptError);
+            return createErrorResponse(404, 'Quiz attempt not found');
         }
 
-        const quizResults = {
-            quiz_id: quizData.quiz_id,
-            quizName: quizData.quiz_name,
-            attemptId: quizData.attempt_id,
-            score: quizData.score || 0,
-            totalQuestions: quizData.total_questions || questions.length,
-            questions: questions.map((question, index) => {
-                const correctAnswerIndex = question.options.findIndex(option => option.is_correct);
-                const userAnswer = userAnswers[index];
+        // Get student's rank
+        const { data: betterScores, error: rankError } = await supabase
+            .from('quiz_attempts')
+            .select('id', { count: 'exact' })
+            .eq('quiz_id', quiz_id)
+            .gt('score', attempt.score);
 
-                return {
-                    question_text: question.question_text,
-                    options: question.options.map((option, optionIndex) => ({
-                        ...option,
-                        isSelected: userAnswer == optionIndex,
-                        isCorrectAnswer: optionIndex == correctAnswerIndex,
-                    })),
-                };
-            }),
-            userAnswers: userAnswers,
-        };
+        if (rankError) {
+            console.error('Rank calculation error:', rankError);
+            return createErrorResponse(500, 'Failed to calculate rank');
+        }
 
-        return {
-            statusCode: 200,
-            body: JSON.stringify(quizResults),
-            headers: { 'Content-Type': 'application/json' },
-        };
+        // Get total attempts for percentile calculation
+        const { count: totalAttempts, error: countError } = await supabase
+            .from('quiz_attempts')
+            .select('id', { count: 'exact' })
+            .eq('quiz_id', quiz_id);
+
+        if (countError) {
+            console.error('Count error:', countError);
+            return createErrorResponse(500, 'Failed to get total attempts');
+        }
+
+        const rank = betterScores.length + 1;
+        const percentile = Math.round(((totalAttempts - rank + 1) / totalAttempts) * 100);
+
+        // Process answers and questions
+        const questions = attempt.quizzes.questions.questions;
+        const studentAnswers = attempt.answers.answers;
+        const detailedResults = questions.map((question, index) => ({
+            question_number: index + 1,
+            question: question.question,
+            your_answer: studentAnswers[index],
+            correct_answer: question.correct_answer,
+            is_correct: studentAnswers[index].toLowerCase() === question.correct_answer.toLowerCase()
+        }));
+
+        return createSuccessResponse({
+            quiz: {
+                id: attempt.quizzes.id,
+                title: attempt.quizzes.title,
+                description: attempt.quizzes.description,
+                due_date: attempt.quizzes.due_date,
+                teacher: attempt.quizzes.teachers
+            },
+            attempt: {
+                id: attempt.id,
+                score: attempt.score,
+                completed_at: attempt.completed_at,
+                rank,
+                total_attempts: totalAttempts,
+                percentile
+            },
+            detailed_results: detailedResults
+        });
+
     } catch (error) {
-        console.error('Error fetching quiz result:', error);
-        return {
-            statusCode: 500,
-            body: JSON.stringify({ message: 'Failed to fetch quiz result', error: error.message }),
-            headers: { 'Content-Type': 'application/json' },
-        };
+        console.error('Get quiz result error:', error);
+        return createErrorResponse(500, 'Internal server error', error.message);
     }
 };

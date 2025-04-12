@@ -1,49 +1,59 @@
-const { Pool } = require('pg');
+const { 
+    supabase, 
+    handleCors, 
+    createErrorResponse, 
+    createSuccessResponse 
+} = require('./supabase-client');
 
-const pool = new Pool({
-    user: process.env.DB_USER,
-    host: process.env.DB_HOST,
-    database: process.env.DB_NAME,
-    password: process.env.DB_PASSWORD,
-    port: process.env.DB_PORT || 5432,
-});
-
-exports.handler = async (event, context) => {
-    if (event.httpMethod !== 'GET') {
-        return { statusCode: 405, body: 'Method Not Allowed' };
+exports.handler = async (event) => {
+    if (event.httpMethod === 'OPTIONS') {
+        return handleCors();
     }
 
-    const { student_id } = event.pathParameters || {};
-
     try {
-        const studentIdInt = parseInt(student_id, 10);
-        if (isNaN(studentIdInt)) {
-            return {
-                statusCode: 400,
-                body: JSON.stringify({ error: 'Invalid student_id: must be a number' }),
-                headers: { 'Content-Type': 'application/json' },
-            };
+        const { student_id } = event.queryStringParameters || {};
+
+        // Validate input
+        if (!student_id) {
+            return createErrorResponse(400, 'student_id is required');
         }
 
-        const query = `
-      SELECT t.id AS id, t.username, t.email
-      FROM teacher_login t
-      INNER JOIN subscriptions s ON t.id = s.teacher_id
-      WHERE s.student_id = $1
-    `;
-        const result = await pool.query(query, [studentIdInt]);
+        // Get all subscriptions with teacher details
+        const { data: subscriptions, error } = await supabase
+            .from('subscriptions')
+            .select(`
+                id,
+                subscribed_at,
+                teachers (
+                    id,
+                    name,
+                    email,
+                    bio
+                )
+            `)
+            .eq('student_id', student_id)
+            .order('subscribed_at', { ascending: false });
 
-        return {
-            statusCode: 200,
-            body: JSON.stringify(result.rows),
-            headers: { 'Content-Type': 'application/json' },
-        };
+        if (error) {
+            console.error('Subscriptions fetch error:', error);
+            return createErrorResponse(500, 'Failed to fetch subscriptions');
+        }
+
+        return createSuccessResponse({
+            subscriptions: subscriptions.map(sub => ({
+                id: sub.id,
+                subscribed_at: sub.subscribed_at,
+                teacher: {
+                    id: sub.teachers.id,
+                    name: sub.teachers.name,
+                    email: sub.teachers.email,
+                    bio: sub.teachers.bio
+                }
+            }))
+        });
+
     } catch (error) {
-        console.error('Error fetching subscriptions:', error);
-        return {
-            statusCode: 500,
-            body: JSON.stringify({ error: 'Failed to fetch subscriptions' }),
-            headers: { 'Content-Type': 'application/json' },
-        };
+        console.error('Get subscriptions error:', error);
+        return createErrorResponse(500, 'Internal server error', error.message);
     }
 };

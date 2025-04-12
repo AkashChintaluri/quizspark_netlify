@@ -1,49 +1,91 @@
-const { Pool } = require('pg');
+const { 
+    supabase, 
+    handleCors, 
+    createErrorResponse, 
+    createSuccessResponse 
+} = require('./supabase-client');
 
-const pool = new Pool({
-    user: process.env.DB_USER,
-    host: process.env.DB_HOST,
-    database: process.env.DB_NAME,
-    password: process.env.DB_PASSWORD,
-    port: process.env.DB_PORT || 5432,
-});
-
-exports.handler = async (event, context) => {
-    if (event.httpMethod !== 'POST') {
-        return { statusCode: 405, body: 'Method Not Allowed' };
+exports.handler = async (event) => {
+    if (event.httpMethod === 'OPTIONS') {
+        return handleCors();
     }
 
-    const { student_id, quiz_id, attempt_id } = JSON.parse(event.body);
-
     try {
-        if (!quiz_id) {
-            console.error('Missing quiz_id in request');
-            return {
-                statusCode: 400,
-                body: JSON.stringify({ error: 'quiz_id is required' }),
-                headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-            };
+        const body = event.isBase64Encoded
+            ? Buffer.from(event.body, 'base64').toString('utf8')
+            : event.body;
+        const { quiz_id, student_id, reason } = JSON.parse(body);
+
+        // Validate input
+        if (!quiz_id || !student_id || !reason) {
+            return createErrorResponse(400, 'Missing required fields');
         }
 
-        const result = await pool.query(
-            `INSERT INTO retest_requests 
-       (student_id, quiz_id, attempt_id) 
-       VALUES ($1, $2, $3) 
-       RETURNING *`,
-            [student_id, quiz_id, attempt_id]
-        );
+        // Check if student has attempted the quiz
+        const { data: attempt, error: attemptError } = await supabase
+            .from('quiz_attempts')
+            .select('id, score')
+            .eq('quiz_id', quiz_id)
+            .eq('student_id', student_id)
+            .single();
 
-        return {
-            statusCode: 201,
-            body: JSON.stringify(result.rows[0]),
-            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-        };
+        if (attemptError && attemptError.code !== 'PGRST116') {
+            console.error('Attempt check error:', attemptError);
+            return createErrorResponse(500, 'Failed to check quiz attempt');
+        }
+
+        if (!attempt) {
+            return createErrorResponse(400, 'You must attempt the quiz before requesting a retest');
+        }
+
+        // Check for existing retest request
+        const { data: existingRequest, error: requestError } = await supabase
+            .from('retest_requests')
+            .select('id, status')
+            .eq('quiz_id', quiz_id)
+            .eq('student_id', student_id)
+            .single();
+
+        if (requestError && requestError.code !== 'PGRST116') {
+            console.error('Request check error:', requestError);
+            return createErrorResponse(500, 'Failed to check existing requests');
+        }
+
+        if (existingRequest) {
+            return createErrorResponse(400, 'You have already submitted a retest request for this quiz');
+        }
+
+        // Create retest request
+        const { data: request, error: createError } = await supabase
+            .from('retest_requests')
+            .insert([
+                {
+                    quiz_id,
+                    student_id,
+                    reason,
+                    status: 'pending',
+                    created_at: new Date().toISOString()
+                }
+            ])
+            .select()
+            .single();
+
+        if (createError) {
+            console.error('Create request error:', createError);
+            return createErrorResponse(500, 'Failed to create retest request');
+        }
+
+        return createSuccessResponse({
+            message: 'Retest request submitted successfully',
+            request: {
+                id: request.id,
+                status: request.status,
+                created_at: request.created_at
+            }
+        });
+
     } catch (error) {
-        console.error('Error creating retest request:', error);
-        return {
-            statusCode: 500,
-            body: JSON.stringify({ error: 'Failed to create retest request' }),
-            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-        };
+        console.error('Create retest request error:', error);
+        return createErrorResponse(500, 'Internal server error', error.message);
     }
 };

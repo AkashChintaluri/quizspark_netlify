@@ -1,48 +1,93 @@
-const { Pool } = require('pg');
+const { 
+    supabase, 
+    handleCors, 
+    createErrorResponse, 
+    createSuccessResponse 
+} = require('./supabase-client');
 
-const pool = new Pool({
-    user: process.env.DB_USER,
-    host: process.env.DB_HOST,
-    database: process.env.DB_NAME,
-    password: process.env.DB_PASSWORD,
-    port: process.env.DB_PORT || 5432,
-});
-
-exports.handler = async (event, context) => {
-    if (event.httpMethod !== 'GET') {
-        return { statusCode: 405, body: 'Method Not Allowed' };
+exports.handler = async (event) => {
+    if (event.httpMethod === 'OPTIONS') {
+        return handleCors();
     }
 
-    const { userId, userType } = event.pathParameters || {};
-    const table = userType === 'student' ? 'student_login' : 'teacher_login';
-
     try {
-        const query = `
-      SELECT id, username, email 
-      FROM ${table} 
-      WHERE id = $1
-    `;
-        const result = await pool.query(query, [userId]);
+        const body = event.isBase64Encoded
+            ? Buffer.from(event.body, 'base64').toString('utf8')
+            : event.body;
+        const { userId, userType } = JSON.parse(body);
 
-        if (result.rows.length > 0) {
-            return {
-                statusCode: 200,
-                body: JSON.stringify({ ...result.rows[0], userType }),
-                headers: { 'Content-Type': 'application/json' },
-            };
-        } else {
-            return {
-                statusCode: 404,
-                body: JSON.stringify({ message: 'User not found' }),
-                headers: { 'Content-Type': 'application/json' },
-            };
+        // Validate input
+        if (!userId || !userType) {
+            return createErrorResponse(400, 'Missing required fields');
         }
+
+        const validTypes = ['student', 'teacher'];
+        if (!validTypes.includes(userType)) {
+            return createErrorResponse(400, 'Invalid user type');
+        }
+
+        // Get user details
+        const table = `${userType}_login`;
+        const { data: user, error } = await supabase
+            .from(table)
+            .select('id, username, email')
+            .eq('id', userId)
+            .maybeSingle();
+
+        if (error) {
+            console.error('Database fetch error:', error);
+            return createErrorResponse(500, 'Failed to fetch user data');
+        }
+
+        if (!user) {
+            return createErrorResponse(404, 'User not found');
+        }
+
+        // Get additional user stats based on type
+        let additionalData = {};
+        
+        if (userType === 'student') {
+            // Get student's quiz attempts count and average score
+            const { data: stats, error: statsError } = await supabase
+                .from('quiz_attempts')
+                .select('score')
+                .eq('student_id', userId);
+
+            if (!statsError && stats) {
+                const attempts = stats.length;
+                const averageScore = attempts > 0
+                    ? stats.reduce((sum, attempt) => sum + attempt.score, 0) / attempts
+                    : 0;
+
+                additionalData = {
+                    totalAttempts: attempts,
+                    averageScore: Math.round(averageScore * 100) / 100
+                };
+            }
+        } else {
+            // Get teacher's created quizzes count
+            const { count, error: quizError } = await supabase
+                .from('quizzes')
+                .select('*', { count: 'exact', head: true })
+                .eq('teacher_id', userId);
+
+            if (!quizError) {
+                additionalData = {
+                    totalQuizzes: count || 0
+                };
+            }
+        }
+
+        return createSuccessResponse({
+            user: {
+                ...user,
+                userType,
+                ...additionalData
+            }
+        });
+
     } catch (error) {
-        console.error('Current user error:', error);
-        return {
-            statusCode: 500,
-            body: JSON.stringify({ error: 'Failed to fetch user' }),
-            headers: { 'Content-Type': 'application/json' },
-        };
+        console.error('Current user fetch error:', error);
+        return createErrorResponse(500, 'Internal server error', error.message);
     }
 };

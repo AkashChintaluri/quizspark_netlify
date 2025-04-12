@@ -1,35 +1,66 @@
-const { Pool } = require('pg');
+const { 
+    supabase, 
+    handleCors, 
+    createErrorResponse, 
+    createSuccessResponse 
+} = require('./supabase-client');
 
-const pool = new Pool({
-    user: process.env.DB_USER,
-    host: process.env.DB_HOST,
-    database: process.env.DB_NAME,
-    password: process.env.DB_PASSWORD,
-    port: process.env.DB_PORT || 5432,
-});
-
-exports.handler = async (event, context) => {
-    if (event.httpMethod !== 'GET') {
-        return { statusCode: 405, body: 'Method Not Allowed' };
+exports.handler = async (event) => {
+    if (event.httpMethod === 'OPTIONS') {
+        return handleCors();
     }
 
     try {
-        const result = await pool.query(`
-      SELECT id AS id, username, email 
-      FROM teacher_login
-    `);
+        const { student_id } = event.queryStringParameters || {};
 
-        return {
-            statusCode: 200,
-            body: JSON.stringify(result.rows),
-            headers: { 'Content-Type': 'application/json' },
-        };
+        let query = supabase
+            .from('teachers')
+            .select(`
+                id,
+                name,
+                email,
+                bio,
+                created_at
+            `)
+            .order('name');
+
+        // Execute query
+        const { data: teachers, error } = await query;
+
+        if (error) {
+            console.error('Teachers fetch error:', error);
+            return createErrorResponse(500, 'Failed to fetch teachers');
+        }
+
+        // If student_id is provided, get their subscriptions
+        let subscriptions = [];
+        if (student_id) {
+            const { data: subs, error: subError } = await supabase
+                .from('subscriptions')
+                .select('teacher_id')
+                .eq('student_id', student_id);
+
+            if (subError) {
+                console.error('Subscriptions fetch error:', subError);
+                return createErrorResponse(500, 'Failed to fetch subscriptions');
+            }
+
+            subscriptions = subs.map(sub => sub.teacher_id);
+        }
+
+        return createSuccessResponse({
+            teachers: teachers.map(teacher => ({
+                id: teacher.id,
+                name: teacher.name,
+                email: teacher.email,
+                bio: teacher.bio,
+                created_at: teacher.created_at,
+                is_subscribed: student_id ? subscriptions.includes(teacher.id) : undefined
+            }))
+        });
+
     } catch (error) {
-        console.error('Error fetching teachers:', error);
-        return {
-            statusCode: 500,
-            body: JSON.stringify({ error: 'Failed to fetch teachers' }),
-            headers: { 'Content-Type': 'application/json' },
-        };
+        console.error('Get teachers error:', error);
+        return createErrorResponse(500, 'Internal server error', error.message);
     }
 };

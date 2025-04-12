@@ -1,54 +1,75 @@
-const { Pool } = require('pg');
+const bcrypt = require('bcryptjs');
+const { 
+    supabase, 
+    handleCors, 
+    createErrorResponse, 
+    createSuccessResponse 
+} = require('./supabase-client');
 
-const pool = new Pool({
-    user: process.env.DB_USER,
-    host: process.env.DB_HOST,
-    database: process.env.DB_NAME,
-    password: process.env.DB_PASSWORD,
-    port: process.env.DB_PORT || 5432,
-});
-
-exports.handler = async (event, context) => {
-    if (event.httpMethod !== 'POST') {
-        return { statusCode: 405, body: 'Method Not Allowed' };
+exports.handler = async (event) => {
+    if (event.httpMethod === 'OPTIONS') {
+        return handleCors();
     }
 
-    const { username, currentPassword, newPassword, userType } = JSON.parse(event.body);
-    const table = userType === 'student' ? 'student_login' : 'teacher_login';
-
     try {
-        const verifyQuery = `
-      SELECT id FROM ${table} 
-      WHERE username = $1 AND password = $2
-    `;
-        const verifyResult = await pool.query(verifyQuery, [username, currentPassword]);
+        const body = event.isBase64Encoded
+            ? Buffer.from(event.body, 'base64').toString('utf8')
+            : event.body;
+        const { username, currentPassword, newPassword, userType } = JSON.parse(body);
 
-        if (verifyResult.rows.length === 0) {
-            return {
-                statusCode: 401,
-                body: JSON.stringify({ success: false, message: 'Invalid credentials' }),
-                headers: { 'Content-Type': 'application/json' },
-            };
+        // Validate input
+        if (!username || !currentPassword || !newPassword || !userType) {
+            return createErrorResponse(400, 'Missing required fields');
         }
 
-        const updateQuery = `
-      UPDATE ${table} 
-      SET password = $1 
-      WHERE username = $2
-    `;
-        await pool.query(updateQuery, [newPassword, username]);
+        const validTypes = ['student', 'teacher'];
+        if (!validTypes.includes(userType)) {
+            return createErrorResponse(400, 'Invalid user type');
+        }
 
-        return {
-            statusCode: 200,
-            body: JSON.stringify({ success: true, message: 'Password updated' }),
-            headers: { 'Content-Type': 'application/json' },
-        };
+        // Get user from database
+        const table = `${userType}_login`;
+        const { data: user, error: fetchError } = await supabase
+            .from(table)
+            .select('id, password')
+            .eq('username', username)
+            .maybeSingle();
+
+        if (fetchError) {
+            console.error('Database fetch error:', fetchError);
+            return createErrorResponse(500, 'Failed to fetch user data');
+        }
+
+        if (!user) {
+            return createErrorResponse(404, 'User not found');
+        }
+
+        // Verify current password
+        const isValidPassword = await bcrypt.compare(currentPassword, user.password);
+        if (!isValidPassword) {
+            return createErrorResponse(401, 'Current password is incorrect');
+        }
+
+        // Hash new password
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+        // Update password
+        const { error: updateError } = await supabase
+            .from(table)
+            .update({ password: hashedPassword })
+            .eq('id', user.id);
+
+        if (updateError) {
+            console.error('Password update error:', updateError);
+            return createErrorResponse(500, 'Failed to update password');
+        }
+
+        return createSuccessResponse({
+            message: 'Password updated successfully'
+        });
+
     } catch (error) {
-        console.error('Password change error:', error);
-        return {
-            statusCode: 500,
-            body: JSON.stringify({ success: false, error: 'Password update failed' }),
-            headers: { 'Content-Type': 'application/json' },
-        };
+        console.error('Change password error:', error);
+        return createErrorResponse(500, 'Internal server error', error.message);
     }
 };

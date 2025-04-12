@@ -1,41 +1,69 @@
-const { Pool } = require('pg');
+const { 
+    supabase, 
+    handleCors, 
+    createErrorResponse, 
+    createSuccessResponse 
+} = require('./supabase-client');
 
-const pool = new Pool({
-    user: process.env.DB_USER,
-    host: process.env.DB_HOST,
-    database: process.env.DB_NAME,
-    password: process.env.DB_PASSWORD,
-    port: process.env.DB_PORT || 5432,
-});
-
-exports.handler = async (event, context) => {
-    if (event.httpMethod !== 'GET') {
-        return { statusCode: 405, body: 'Method Not Allowed' };
+exports.handler = async (event) => {
+    if (event.httpMethod === 'OPTIONS') {
+        return handleCors();
     }
 
-    const userId = event.path.split('/').pop(); // /api/attempted-quizzes/:user_id
-
     try {
-        const query = `
-      SELECT DISTINCT q.quiz_id, q.quiz_name, q.quiz_code, t.username AS teacher_name, q.due_date
-      FROM quiz_attempts qa
-      JOIN quizzes q ON qa.quiz_id = q.quiz_id
-      JOIN teacher_login t ON q.created_by = t.id
-      WHERE qa.user_id = $1
-    `;
-        const result = await pool.query(query, [userId]);
+        const { student_id } = event.queryStringParameters || {};
 
-        return {
-            statusCode: 200,
-            body: JSON.stringify(result.rows),
-            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-        };
+        // Validate input
+        if (!student_id) {
+            return createErrorResponse(400, 'student_id is required');
+        }
+
+        // Get all attempted quizzes for the student
+        const { data: attempts, error } = await supabase
+            .from('quiz_attempts')
+            .select(`
+                id,
+                score,
+                completed_at,
+                quizzes (
+                    id,
+                    title,
+                    description,
+                    due_date,
+                    created_at,
+                    teacher_id,
+                    teachers (
+                        name,
+                        email
+                    )
+                )
+            `)
+            .eq('student_id', student_id)
+            .order('completed_at', { ascending: false });
+
+        if (error) {
+            console.error('Attempted quizzes fetch error:', error);
+            return createErrorResponse(500, 'Failed to fetch attempted quizzes');
+        }
+
+        return createSuccessResponse({
+            quizzes: attempts.map(attempt => ({
+                attempt_id: attempt.id,
+                score: attempt.score,
+                completed_at: attempt.completed_at,
+                quiz: {
+                    id: attempt.quizzes.id,
+                    title: attempt.quizzes.title,
+                    description: attempt.quizzes.description,
+                    due_date: attempt.quizzes.due_date,
+                    created_at: attempt.quizzes.created_at,
+                    teacher: attempt.quizzes.teachers
+                }
+            }))
+        });
+
     } catch (error) {
-        console.error('Error fetching attempted quizzes:', error);
-        return {
-            statusCode: 500,
-            body: JSON.stringify({ message: 'Failed to fetch attempted quizzes' }),
-            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-        };
+        console.error('Get attempted quizzes error:', error);
+        return createErrorResponse(500, 'Internal server error', error.message);
     }
 };

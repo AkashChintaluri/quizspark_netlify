@@ -1,70 +1,113 @@
-const { Pool } = require('pg');
+const { 
+    supabase, 
+    handleCors, 
+    createErrorResponse, 
+    createSuccessResponse 
+} = require('./supabase-client');
 
-const pool = new Pool({
-    user: process.env.DB_USER,
-    host: process.env.DB_HOST,
-    database: process.env.DB_NAME,
-    password: process.env.DB_PASSWORD,
-    port: process.env.DB_PORT || 5432,
-});
-
-exports.handler = async (event, context) => {
-    if (event.httpMethod !== 'POST') {
-        return { statusCode: 405, body: 'Method Not Allowed' };
+exports.handler = async (event) => {
+    if (event.httpMethod === 'OPTIONS') {
+        return handleCors();
     }
 
-    const { quiz_code, user_id, answers } = JSON.parse(event.body);
-
     try {
-        const quizQuery = `
-      SELECT quiz_id, questions
-      FROM quizzes
-      WHERE quiz_code = $1
-    `;
-        const quizResult = await pool.query(quizQuery, [quiz_code]);
-        if (quizResult.rows.length === 0) {
-            return {
-                statusCode: 404,
-                body: JSON.stringify({ message: 'Quiz not found' }),
-                headers: { 'Content-Type': 'application/json' },
-            };
+        const body = event.isBase64Encoded
+            ? Buffer.from(event.body, 'base64').toString('utf8')
+            : event.body;
+        const { quiz_id, student_id, answers } = JSON.parse(body);
+
+        // Validate input
+        if (!quiz_id || !student_id || !answers || !Array.isArray(answers)) {
+            return createErrorResponse(400, 'Missing or invalid required fields');
         }
 
-        const quiz = quizResult.rows[0];
+        // Get quiz details and check if it's still active
+        const { data: quiz, error: quizError } = await supabase
+            .from('quizzes')
+            .select('questions, due_date')
+            .eq('id', quiz_id)
+            .single();
+
+        if (quizError || !quiz) {
+            return createErrorResponse(404, 'Quiz not found');
+        }
+
+        const now = new Date();
+        const dueDate = new Date(quiz.due_date);
+        if (now > dueDate) {
+            return createErrorResponse(403, 'Quiz has expired');
+        }
+
+        // Check if student has already attempted this quiz
+        const { data: existingAttempt, error: attemptError } = await supabase
+            .from('quiz_attempts')
+            .select('id')
+            .eq('quiz_id', quiz_id)
+            .eq('student_id', student_id)
+            .single();
+
+        if (attemptError && attemptError.code !== 'PGRST116') {
+            console.error('Attempt check error:', attemptError);
+            return createErrorResponse(500, 'Failed to check existing attempts');
+        }
+
+        if (existingAttempt) {
+            return createErrorResponse(403, 'You have already attempted this quiz');
+        }
+
+        // Calculate score
         const questions = quiz.questions.questions;
+        if (answers.length !== questions.length) {
+            return createErrorResponse(400, 'Number of answers does not match number of questions');
+        }
 
-        let score = 0;
-        let totalQuestions = questions.length;
+        let correctAnswers = 0;
+        const detailedResults = answers.map((answer, index) => {
+            const question = questions[index];
+            const isCorrect = answer.toLowerCase() === question.correct_answer.toLowerCase();
+            if (isCorrect) correctAnswers++;
+            return {
+                question_number: index + 1,
+                your_answer: answer,
+                correct_answer: question.correct_answer,
+                is_correct: isCorrect
+            };
+        });
 
-        questions.forEach((question, index) => {
-            const correctAnswerIndex = question.options.findIndex(option => option.is_correct);
-            const userAnswer = parseInt(answers[index]);
-            if (correctAnswerIndex === userAnswer) {
-                score++;
+        const score = (correctAnswers / questions.length) * 100;
+
+        // Save attempt
+        const { data: attempt, error: saveError } = await supabase
+            .from('quiz_attempts')
+            .insert([
+                {
+                    quiz_id,
+                    student_id,
+                    score,
+                    answers: { answers },
+                    completed_at: new Date().toISOString()
+                }
+            ])
+            .select()
+            .single();
+
+        if (saveError) {
+            console.error('Save attempt error:', saveError);
+            return createErrorResponse(500, 'Failed to save quiz attempt');
+        }
+
+        return createSuccessResponse({
+            message: 'Quiz submitted successfully',
+            attempt: {
+                id: attempt.id,
+                score,
+                completed_at: attempt.completed_at,
+                results: detailedResults
             }
         });
 
-        const insertQuery = `
-      INSERT INTO quiz_attempts (quiz_id, user_id, score, total_questions, answers)
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING attempt_id
-    `;
-        const insertValues = [quiz.quiz_id, user_id, score, totalQuestions, JSON.stringify(answers)];
-        const insertResult = await pool.query(insertQuery, insertValues);
-
-        const attemptId = insertResult.rows[0].attempt_id;
-
-        return {
-            statusCode: 201,
-            body: JSON.stringify({ attemptId, score, totalQuestions }),
-            headers: { 'Content-Type': 'application/json' },
-        };
     } catch (error) {
-        console.error('Error submitting quiz:', error);
-        return {
-            statusCode: 500,
-            body: JSON.stringify({ message: 'Failed to submit quiz', error: error.message }),
-            headers: { 'Content-Type': 'application/json' },
-        };
+        console.error('Quiz submission error:', error);
+        return createErrorResponse(500, 'Internal server error', error.message);
     }
 };

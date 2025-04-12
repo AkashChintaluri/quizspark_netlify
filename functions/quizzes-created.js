@@ -1,40 +1,74 @@
-const { Pool } = require('pg');
+const { 
+    supabase, 
+    handleCors, 
+    createErrorResponse, 
+    createSuccessResponse 
+} = require('./supabase-client');
 
-const pool = new Pool({
-    user: process.env.DB_USER,
-    host: process.env.DB_HOST,
-    database: process.env.DB_NAME,
-    password: process.env.DB_PASSWORD,
-    port: process.env.DB_PORT || 5432,
-});
-
-exports.handler = async (event, context) => {
-    if (event.httpMethod !== 'GET') {
-        return { statusCode: 405, body: 'Method Not Allowed' };
+exports.handler = async (event) => {
+    if (event.httpMethod === 'OPTIONS') {
+        return handleCors();
     }
 
-    const userId = event.path.split('/').pop(); // /api/quizzes/created/:user_id
-
     try {
-        const query = `
-      SELECT quiz_id, quiz_name, quiz_code, questions, due_date, created_at
-      FROM quizzes
-      WHERE created_by = $1
-      ORDER BY created_at DESC
-    `;
-        const result = await pool.query(query, [userId]);
+        const body = event.isBase64Encoded
+            ? Buffer.from(event.body, 'base64').toString('utf8')
+            : event.body;
+        const { teacher_id } = JSON.parse(body);
 
-        return {
-            statusCode: 200,
-            body: JSON.stringify(result.rows),
-            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-        };
+        // Validate input
+        if (!teacher_id) {
+            return createErrorResponse(400, 'Missing teacher ID');
+        }
+
+        // Get all quizzes created by the teacher
+        const { data: quizzes, error } = await supabase
+            .from('quizzes')
+            .select(`
+                id,
+                quiz_name,
+                quiz_code,
+                due_date,
+                created_at,
+                quiz_attempts (
+                    id,
+                    score
+                )
+            `)
+            .eq('teacher_id', teacher_id)
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            console.error('Quizzes fetch error:', error);
+            return createErrorResponse(500, 'Failed to fetch quizzes');
+        }
+
+        // Process quiz data to include statistics
+        const processedQuizzes = quizzes.map(quiz => {
+            const attempts = quiz.quiz_attempts || [];
+            const stats = {
+                total_attempts: attempts.length,
+                average_score: attempts.length > 0
+                    ? Math.round((attempts.reduce((sum, a) => sum + a.score, 0) / attempts.length) * 100) / 100
+                    : 0
+            };
+
+            return {
+                id: quiz.id,
+                quiz_name: quiz.quiz_name,
+                quiz_code: quiz.quiz_code,
+                due_date: quiz.due_date,
+                created_at: quiz.created_at,
+                ...stats
+            };
+        });
+
+        return createSuccessResponse({
+            quizzes: processedQuizzes
+        });
+
     } catch (error) {
-        console.error('Error fetching created quizzes:', error);
-        return {
-            statusCode: 500,
-            body: JSON.stringify({ error: 'Failed to fetch created quizzes' }),
-            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-        };
+        console.error('Quizzes fetch error:', error);
+        return createErrorResponse(500, 'Internal server error', error.message);
     }
 };

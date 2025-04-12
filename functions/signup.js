@@ -1,63 +1,82 @@
-const { Pool } = require('pg');
-
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false } // Required for Supabase
-});
+const bcrypt = require('bcryptjs');
+const { 
+    supabase, 
+    handleCors, 
+    createErrorResponse, 
+    createSuccessResponse 
+} = require('./supabase-client');
 
 exports.handler = async (event) => {
-    if (event.httpMethod !== 'POST') {
-        return { statusCode: 405, body: 'Method Not Allowed' };
+    // Handle CORS preflight requests
+    if (event.httpMethod === 'OPTIONS') {
+        return handleCors();
     }
 
     try {
-        const { username, email, password, userType } = JSON.parse(event.body);
+        // Parse request body
+        const body = event.isBase64Encoded
+            ? Buffer.from(event.body, 'base64').toString('utf8')
+            : event.body;
+        const { username, email, password, userType } = JSON.parse(body);
 
+        // Validate input
         if (!username || !email || !password || !userType) {
-            return {
-                statusCode: 400,
-                headers: { 'Access-Control-Allow-Origin': '*' },
-                body: JSON.stringify({ error: 'Missing required fields' })
-            };
+            return createErrorResponse(400, 'Missing required fields');
         }
 
         const validTypes = ['student', 'teacher'];
         if (!validTypes.includes(userType)) {
-            return {
-                statusCode: 400,
-                headers: { 'Access-Control-Allow-Origin': '*' },
-                body: JSON.stringify({ error: 'Invalid user type' })
-            };
+            return createErrorResponse(400, 'Invalid user type');
         }
 
+        // Check if username already exists
         const table = `${userType}_login`;
-        const query = `
-      INSERT INTO ${table} (username, email, password)
-      VALUES ($1, $2, $3)
-      RETURNING id
-    `;
-        const result = await pool.query(query, [username, email, password]);
+        const { data: existingUser, error: checkError } = await supabase
+            .from(table)
+            .select('username')
+            .eq('username', username)
+            .maybeSingle();
 
-        return {
-            statusCode: 201,
-            headers: {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*'
-            },
-            body: JSON.stringify({
-                message: 'User registered successfully',
-                userId: result.rows[0].id
-            })
-        };
+        if (checkError) {
+            console.error('Database check error:', checkError);
+            return createErrorResponse(500, 'Failed to check username availability');
+        }
+
+        if (existingUser) {
+            return createErrorResponse(409, 'Username already exists');
+        }
+
+        // Hash password
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        // Insert new user
+        const { data, error } = await supabase
+            .from(table)
+            .insert([
+                {
+                    username,
+                    email,
+                    password: hashedPassword
+                }
+            ])
+            .select('id, username, email')
+            .single();
+
+        if (error) {
+            console.error('Signup error:', error);
+            return createErrorResponse(500, 'Failed to create user', error.message);
+        }
+
+        return createSuccessResponse({
+            message: 'User created successfully',
+            user: {
+                ...data,
+                userType
+            }
+        });
+
     } catch (error) {
         console.error('Signup error:', error);
-        return {
-            statusCode: 500,
-            headers: {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*'
-            },
-            body: JSON.stringify({ error: 'Registration failed' })
-        };
+        return createErrorResponse(500, 'Internal server error', error.message);
     }
 };

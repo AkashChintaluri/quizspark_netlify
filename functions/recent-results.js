@@ -1,42 +1,91 @@
-const { Pool } = require('pg');
+const { 
+    supabase, 
+    handleCors, 
+    createErrorResponse, 
+    createSuccessResponse 
+} = require('./supabase-client');
 
-const pool = new Pool({
-    user: process.env.DB_USER,
-    host: process.env.DB_HOST,
-    database: process.env.DB_NAME,
-    password: process.env.DB_PASSWORD,
-    port: process.env.DB_PORT || 5432,
-});
-
-exports.handler = async (event, context) => {
-    if (event.httpMethod !== 'GET') {
-        return { statusCode: 405, body: 'Method Not Allowed' };
+exports.handler = async (event) => {
+    if (event.httpMethod === 'OPTIONS') {
+        return handleCors();
     }
 
-    const { user_id } = event.pathParameters || {};
-
     try {
-        const query = `
-      SELECT q.quiz_name, qa.attempt_id, qa.score, qa.total_questions, qa.attempt_date
-      FROM quiz_attempts qa
-      JOIN quizzes q ON q.quiz_id = qa.quiz_id
-      WHERE qa.user_id = $1
-      ORDER BY qa.attempt_date DESC
-      LIMIT 5
-    `;
-        const result = await pool.query(query, [user_id]);
+        const { teacher_id, limit = 10 } = event.queryStringParameters || {};
 
-        return {
-            statusCode: 200,
-            body: JSON.stringify(result.rows),
-            headers: { 'Content-Type': 'application/json' },
-        };
+        // Validate input
+        if (!teacher_id) {
+            return createErrorResponse(400, 'teacher_id is required');
+        }
+
+        // Get quizzes created by the teacher
+        const { data: quizzes, error: quizError } = await supabase
+            .from('quizzes')
+            .select('id')
+            .eq('teacher_id', teacher_id);
+
+        if (quizError) {
+            console.error('Quizzes fetch error:', quizError);
+            return createErrorResponse(500, 'Failed to fetch teacher quizzes');
+        }
+
+        const quizIds = quizzes.map(q => q.id);
+
+        if (quizIds.length === 0) {
+            return createSuccessResponse({
+                results: []
+            });
+        }
+
+        // Get recent attempts for these quizzes
+        const { data: attempts, error: attemptError } = await supabase
+            .from('quiz_attempts')
+            .select(`
+                id,
+                score,
+                completed_at,
+                student_id,
+                students (
+                    name,
+                    email
+                ),
+                quizzes (
+                    id,
+                    title,
+                    description,
+                    due_date
+                )
+            `)
+            .in('quiz_id', quizIds)
+            .order('completed_at', { ascending: false })
+            .limit(limit);
+
+        if (attemptError) {
+            console.error('Attempts fetch error:', attemptError);
+            return createErrorResponse(500, 'Failed to fetch quiz attempts');
+        }
+
+        return createSuccessResponse({
+            results: attempts.map(attempt => ({
+                attempt_id: attempt.id,
+                completed_at: attempt.completed_at,
+                score: attempt.score,
+                student: {
+                    id: attempt.student_id,
+                    name: attempt.students.name,
+                    email: attempt.students.email
+                },
+                quiz: {
+                    id: attempt.quizzes.id,
+                    title: attempt.quizzes.title,
+                    description: attempt.quizzes.description,
+                    due_date: attempt.quizzes.due_date
+                }
+            }))
+        });
+
     } catch (error) {
-        console.error('Error fetching recent results:', error);
-        return {
-            statusCode: 500,
-            body: JSON.stringify({ message: 'Failed to fetch recent results' }),
-            headers: { 'Content-Type': 'application/json' },
-        };
+        console.error('Get recent results error:', error);
+        return createErrorResponse(500, 'Internal server error', error.message);
     }
 };

@@ -1,49 +1,68 @@
-const { Pool } = require('pg');
+const { 
+    supabase, 
+    handleCors, 
+    createErrorResponse, 
+    createSuccessResponse 
+} = require('./supabase-client');
 
-const pool = new Pool({
-    user: process.env.DB_USER,
-    host: process.env.DB_HOST,
-    database: process.env.DB_NAME,
-    password: process.env.DB_PASSWORD,
-    port: process.env.DB_PORT || 5432,
-});
-
-exports.handler = async (event, context) => {
-    if (event.httpMethod !== 'PUT') {
-        return { statusCode: 405, body: 'Method Not Allowed' };
+exports.handler = async (event) => {
+    if (event.httpMethod === 'OPTIONS') {
+        return handleCors();
     }
 
-    const id = event.path.split('/')[3]; // /api/students/:id
-    const { email, name } = JSON.parse(event.body);
-
     try {
-        const query = `
-      UPDATE student_login 
-      SET email = $1, username = $2
-      WHERE id = $3
-      RETURNING id, username, email
-    `;
-        const result = await pool.query(query, [email, name, id]);
+        const body = event.isBase64Encoded
+            ? Buffer.from(event.body, 'base64').toString('utf8')
+            : event.body;
+        const { student_id, name, email, bio } = JSON.parse(body);
 
-        if (result.rows.length === 0) {
-            return {
-                statusCode: 404,
-                body: JSON.stringify({ message: 'Student not found' }),
-                headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-            };
+        // Validate input
+        if (!student_id) {
+            return createErrorResponse(400, 'student_id is required');
         }
 
-        return {
-            statusCode: 200,
-            body: JSON.stringify(result.rows[0]),
-            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-        };
+        // Check if student exists
+        const { data: student, error: studentError } = await supabase
+            .from('students')
+            .select('id')
+            .eq('id', student_id)
+            .single();
+
+        if (studentError) {
+            console.error('Student check error:', studentError);
+            return createErrorResponse(404, 'Student not found');
+        }
+
+        // Update student profile
+        const updateData = {};
+        if (name) updateData.name = name;
+        if (email) updateData.email = email;
+        if (bio) updateData.bio = bio;
+
+        const { data: updatedStudent, error: updateError } = await supabase
+            .from('students')
+            .update(updateData)
+            .eq('id', student_id)
+            .select()
+            .single();
+
+        if (updateError) {
+            console.error('Student update error:', updateError);
+            return createErrorResponse(500, 'Failed to update student profile');
+        }
+
+        return createSuccessResponse({
+            message: 'Student profile updated successfully',
+            student: {
+                id: updatedStudent.id,
+                name: updatedStudent.name,
+                email: updatedStudent.email,
+                bio: updatedStudent.bio
+            }
+        });
+
     } catch (error) {
-        console.error('Error updating student profile:', error);
-        return {
-            statusCode: 500,
-            body: JSON.stringify({ message: 'Failed to update profile' }),
-            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-        };
+        console.error('Update student error:', error);
+        return createErrorResponse(500, 'Internal server error', error.message);
     }
 };

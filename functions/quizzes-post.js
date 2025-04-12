@@ -1,44 +1,56 @@
-const { Pool } = require('pg');
+const { 
+    supabase, 
+    handleCors, 
+    createErrorResponse, 
+    createSuccessResponse 
+} = require('./supabase-client');
 
-const pool = new Pool({
-    user: process.env.DB_USER,
-    host: process.env.DB_HOST,
-    database: process.env.DB_NAME,
-    password: process.env.DB_PASSWORD,
-    port: process.env.DB_PORT || 5432,
-});
-
-exports.handler = async (event, context) => {
-    if (event.httpMethod !== 'POST') {
-        return { statusCode: 405, body: 'Method Not Allowed' };
+exports.handler = async (event) => {
+    if (event.httpMethod === 'OPTIONS') {
+        return handleCors();
     }
 
-    const { quiz_name, quiz_code, created_by, questions, due_date } = JSON.parse(event.body);
-
     try {
-        const query = `
-      INSERT INTO quizzes (quiz_name, quiz_code, created_by, questions, due_date)
-      VALUES ($1, $2, $3, $4::jsonb, $5)
-      RETURNING quiz_id
-    `;
-        const values = [quiz_name, quiz_code, created_by, JSON.stringify({ questions }), due_date];
-        const result = await pool.query(query, values);
-        const quizId = result.rows[0].quiz_id;
+        const body = event.isBase64Encoded
+            ? Buffer.from(event.body, 'base64').toString('utf8')
+            : event.body;
+        const { quiz_name, teacher_id, questions, due_date } = JSON.parse(body);
 
-        return {
-            statusCode: 201,
-            body: JSON.stringify({
-                message: 'Quiz created successfully',
-                quizId: quizId,
-            }),
-            headers: { 'Content-Type': 'application/json' },
-        };
+        // Validate input
+        if (!quiz_name || !teacher_id || !questions || !due_date) {
+            return createErrorResponse(400, 'Missing required fields');
+        }
+
+        // Generate a unique quiz code
+        const quiz_code = Math.random().toString(36).substring(2, 8).toUpperCase();
+
+        // Create quiz
+        const { data: quiz, error: quizError } = await supabase
+            .from('quizzes')
+            .insert([
+                {
+                    quiz_name,
+                    teacher_id,
+                    quiz_code,
+                    questions: { questions },
+                    due_date
+                }
+            ])
+            .select()
+            .single();
+
+        if (quizError) {
+            console.error('Quiz creation error:', quizError);
+            return createErrorResponse(500, 'Failed to create quiz');
+        }
+
+        return createSuccessResponse({
+            message: 'Quiz created successfully',
+            quiz
+        });
+
     } catch (error) {
-        console.error('Error creating quiz:', error);
-        return {
-            statusCode: 500,
-            body: JSON.stringify({ message: 'Failed to create quiz', error: error.message }),
-            headers: { 'Content-Type': 'application/json' },
-        };
+        console.error('Quiz creation error:', error);
+        return createErrorResponse(500, 'Internal server error', error.message);
     }
 };

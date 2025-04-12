@@ -1,49 +1,71 @@
-const { Pool } = require('pg');
+const { 
+    supabase, 
+    handleCors, 
+    createErrorResponse, 
+    createSuccessResponse 
+} = require('./supabase-client');
 
-const pool = new Pool({
-    user: process.env.DB_USER,
-    host: process.env.DB_HOST,
-    database: process.env.DB_NAME,
-    password: process.env.DB_PASSWORD,
-    port: process.env.DB_PORT || 5432,
-});
-
-exports.handler = async (event, context) => {
-    if (event.httpMethod !== 'POST') {
-        return { statusCode: 405, body: 'Method Not Allowed' };
+exports.handler = async (event) => {
+    if (event.httpMethod === 'OPTIONS') {
+        return handleCors();
     }
 
-    const { student_id, quiz_id, attempt_id } = JSON.parse(event.body);
-
     try {
-        if (!quiz_id) {
-            console.error('Missing quiz_id in request');
-            return {
-                statusCode: 400,
-                body: JSON.stringify({ error: 'quiz_id is required' }),
-                headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-            };
+        const body = event.isBase64Encoded
+            ? Buffer.from(event.body, 'base64').toString('utf8')
+            : event.body;
+        const { request_id, status, feedback } = JSON.parse(body);
+
+        // Validate input
+        if (!request_id || !status) {
+            return createErrorResponse(400, 'Missing required fields');
         }
 
-        const result = await pool.query(
-            `INSERT INTO retest_requests 
-       (student_id, quiz_id, attempt_id) 
-       VALUES ($1, $2, $3) 
-       RETURNING *`,
-            [student_id, quiz_id, attempt_id]
-        );
+        // Check if request exists
+        const { data: request, error: requestError } = await supabase
+            .from('retest_requests')
+            .select('id, status')
+            .eq('id', request_id)
+            .single();
 
-        return {
-            statusCode: 201,
-            body: JSON.stringify(result.rows[0]),
-            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-        };
+        if (requestError) {
+            console.error('Request check error:', requestError);
+            return createErrorResponse(404, 'Retest request not found');
+        }
+
+        if (request.status !== 'pending') {
+            return createErrorResponse(400, 'Request has already been processed');
+        }
+
+        // Update request status
+        const { data: updatedRequest, error: updateError } = await supabase
+            .from('retest_requests')
+            .update({
+                status,
+                feedback,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', request_id)
+            .select()
+            .single();
+
+        if (updateError) {
+            console.error('Update request error:', updateError);
+            return createErrorResponse(500, 'Failed to update retest request');
+        }
+
+        return createSuccessResponse({
+            message: 'Retest request updated successfully',
+            request: {
+                id: updatedRequest.id,
+                status: updatedRequest.status,
+                feedback: updatedRequest.feedback,
+                updated_at: updatedRequest.updated_at
+            }
+        });
+
     } catch (error) {
-        console.error('Error creating retest request:', error);
-        return {
-            statusCode: 500,
-            body: JSON.stringify({ error: 'Failed to create retest request' }),
-            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-        };
+        console.error('Update retest request error:', error);
+        return createErrorResponse(500, 'Internal server error', error.message);
     }
 };

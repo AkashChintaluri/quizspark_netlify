@@ -1,52 +1,90 @@
-const { Pool } = require('pg');
+const { 
+    supabase, 
+    handleCors, 
+    createErrorResponse, 
+    createSuccessResponse 
+} = require('./supabase-client');
 
-const pool = new Pool({
-    user: process.env.DB_USER,
-    host: process.env.DB_HOST,
-    database: process.env.DB_NAME,
-    password: process.env.DB_PASSWORD,
-    port: process.env.DB_PORT || 5432,
-});
-
-exports.handler = async (event, context) => {
-    if (event.httpMethod !== 'GET') {
-        return { statusCode: 405, body: 'Method Not Allowed' };
+exports.handler = async (event) => {
+    if (event.httpMethod === 'OPTIONS') {
+        return handleCors();
     }
 
-    const studentId = event.path.split('/').pop(); // /api/upcoming-quizzes/:student_id
-
     try {
-        const query = `
-      SELECT q.*, t.username AS teacher_name
-      FROM quizzes q
-      JOIN teacher_login t ON q.created_by = t.id
-      WHERE q.created_by IN (
-        SELECT teacher_id 
-        FROM subscriptions 
-        WHERE student_id = $1
-      )
-      AND q.due_date > NOW()
-      AND NOT EXISTS (
-        SELECT 1 
-        FROM quiz_attempts 
-        WHERE quiz_id = q.quiz_id 
-        AND user_id = $1
-      )
-      ORDER BY q.due_date ASC
-    `;
-        const result = await pool.query(query, [studentId]);
+        const { student_id } = event.queryStringParameters || {};
 
-        return {
-            statusCode: 200,
-            body: JSON.stringify(result.rows),
-            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-        };
+        // Validate input
+        if (!student_id) {
+            return createErrorResponse(400, 'student_id is required');
+        }
+
+        const now = new Date().toISOString();
+
+        // Get all upcoming quizzes for the student's subscribed teachers
+        const { data: subscriptions, error: subError } = await supabase
+            .from('subscriptions')
+            .select('teacher_id')
+            .eq('student_id', student_id);
+
+        if (subError) {
+            console.error('Subscriptions fetch error:', subError);
+            return createErrorResponse(500, 'Failed to fetch subscriptions');
+        }
+
+        const teacherIds = subscriptions.map(sub => sub.teacher_id);
+
+        // Get upcoming quizzes from subscribed teachers
+        const { data: quizzes, error: quizError } = await supabase
+            .from('quizzes')
+            .select(`
+                id,
+                title,
+                description,
+                due_date,
+                created_at,
+                teacher_id,
+                teachers (
+                    name,
+                    email
+                )
+            `)
+            .in('teacher_id', teacherIds)
+            .gt('due_date', now)
+            .order('due_date', { ascending: true });
+
+        if (quizError) {
+            console.error('Upcoming quizzes fetch error:', quizError);
+            return createErrorResponse(500, 'Failed to fetch upcoming quizzes');
+        }
+
+        // Check which quizzes have been attempted
+        const { data: attempts, error: attemptError } = await supabase
+            .from('quiz_attempts')
+            .select('quiz_id')
+            .eq('student_id', student_id)
+            .in('quiz_id', quizzes.map(q => q.id));
+
+        if (attemptError) {
+            console.error('Attempts fetch error:', attemptError);
+            return createErrorResponse(500, 'Failed to fetch quiz attempts');
+        }
+
+        const attemptedQuizIds = new Set(attempts.map(a => a.quiz_id));
+
+        return createSuccessResponse({
+            quizzes: quizzes.map(quiz => ({
+                id: quiz.id,
+                title: quiz.title,
+                description: quiz.description,
+                due_date: quiz.due_date,
+                created_at: quiz.created_at,
+                teacher: quiz.teachers,
+                is_attempted: attemptedQuizIds.has(quiz.id)
+            }))
+        });
+
     } catch (error) {
-        console.error('Error fetching quizzes:', error);
-        return {
-            statusCode: 500,
-            body: JSON.stringify({ error: 'Failed to fetch quizzes' }),
-            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-        };
+        console.error('Get upcoming quizzes error:', error);
+        return createErrorResponse(500, 'Internal server error', error.message);
     }
 };

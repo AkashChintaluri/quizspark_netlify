@@ -1,60 +1,74 @@
-const { Pool } = require('pg');
+const { 
+    supabase, 
+    handleCors, 
+    createErrorResponse, 
+    createSuccessResponse 
+} = require('./supabase-client');
 
-const pool = new Pool({
-    user: process.env.DB_USER,
-    host: process.env.DB_HOST,
-    database: process.env.DB_NAME,
-    password: process.env.DB_PASSWORD,
-    port: process.env.DB_PORT || 5432,
-});
-
-exports.handler = async (event, context) => {
-    if (event.httpMethod !== 'GET') {
-        return { statusCode: 405, body: 'Method Not Allowed' };
+exports.handler = async (event) => {
+    if (event.httpMethod === 'OPTIONS') {
+        return handleCors();
     }
 
-    const quizCode = event.path.split('/').pop(); // /api/quiz-attempts/:quiz_code
-
     try {
-        const query = `
-      SELECT 
-        qa.attempt_id,
-        qa.user_id,
-        s.username AS student_username,
-        qa.score,
-        qa.total_questions,
-        qa.attempt_date,
-        q.quiz_name,
-        rr.request_id,
-        rr.status AS retest_status
-      FROM quiz_attempts qa
-      JOIN quizzes q ON qa.quiz_id = q.quiz_id
-      JOIN student_login s ON qa.user_id = s.id
-      LEFT JOIN retest_requests rr ON qa.attempt_id = rr.attempt_id
-      WHERE q.quiz_code = $1
-      ORDER BY qa.attempt_date DESC
-    `;
-        const result = await pool.query(query, [quizCode]);
+        const { student_id, quiz_id } = event.queryStringParameters || {};
 
-        if (result.rows.length === 0) {
-            return {
-                statusCode: 404,
-                body: JSON.stringify({ message: 'No attempts found for this quiz' }),
-                headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-            };
+        // Validate input
+        if (!student_id && !quiz_id) {
+            return createErrorResponse(400, 'Either student_id or quiz_id is required');
         }
 
-        return {
-            statusCode: 200,
-            body: JSON.stringify(result.rows),
-            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-        };
+        let query = supabase
+            .from('quiz_attempts')
+            .select(`
+                id,
+                quiz_id,
+                student_id,
+                score,
+                answers,
+                completed_at,
+                quizzes (
+                    title,
+                    due_date,
+                    questions
+                ),
+                students (
+                    name,
+                    email
+                )
+            `);
+
+        // Apply filters
+        if (student_id) {
+            query = query.eq('student_id', student_id);
+        }
+        if (quiz_id) {
+            query = query.eq('quiz_id', quiz_id);
+        }
+
+        // Execute query
+        const { data: attempts, error } = await query.order('completed_at', { ascending: false });
+
+        if (error) {
+            console.error('Quiz attempts fetch error:', error);
+            return createErrorResponse(500, 'Failed to fetch quiz attempts');
+        }
+
+        return createSuccessResponse({
+            attempts: attempts.map(attempt => ({
+                id: attempt.id,
+                quiz_id: attempt.quiz_id,
+                student_id: attempt.student_id,
+                score: attempt.score,
+                answers: attempt.answers,
+                completed_at: attempt.completed_at,
+                quiz: attempt.quizzes,
+                student: attempt.students
+            }))
+        });
+
     } catch (error) {
-        console.error('Error fetching quiz attempts:', error);
-        return {
-            statusCode: 500,
-            body: JSON.stringify({ error: 'Failed to fetch quiz attempts' }),
-            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-        };
+        console.error('Get quiz attempts error:', error);
+        return createErrorResponse(500, 'Internal server error', error.message);
     }
 };

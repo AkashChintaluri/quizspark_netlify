@@ -1,72 +1,81 @@
-const { Pool } = require('pg');
+const { 
+    supabase, 
+    handleCors, 
+    createErrorResponse, 
+    createSuccessResponse 
+} = require('./supabase-client');
 
-const pool = new Pool({
-    user: process.env.DB_USER,
-    host: process.env.DB_HOST,
-    database: process.env.DB_NAME,
-    password: process.env.DB_PASSWORD,
-    port: process.env.DB_PORT || 5432,
-});
-
-exports.handler = async (event, context) => {
-    if (event.httpMethod !== 'PUT') {
-        return { statusCode: 405, body: 'Method Not Allowed' };
+exports.handler = async (event) => {
+    if (event.httpMethod === 'OPTIONS') {
+        return handleCors();
     }
 
-    const requestId = event.path.split('/')[3]; // /api/retest-requests/:request_id
-    const { status, teacher_password } = JSON.parse(event.body);
-
     try {
-        const teacherQuery = `
-      SELECT t.password 
-      FROM quizzes q
-      JOIN teacher_login t ON q.created_by = t.id
-      JOIN retest_requests rr ON q.quiz_id = rr.quiz_id
-      WHERE rr.request_id = $1
-    `;
-        const teacherResult = await pool.query(teacherQuery, [requestId]);
+        const body = event.isBase64Encoded
+            ? Buffer.from(event.body, 'base64').toString('utf8')
+            : event.body;
+        const { request_id, status, feedback, teacher_id } = JSON.parse(body);
 
-        if (teacherResult.rows.length === 0 || teacherResult.rows[0].password !== teacher_password) {
-            return {
-                statusCode: 401,
-                body: JSON.stringify({ error: 'Invalid teacher password' }),
-                headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-            };
+        // Validate input
+        if (!request_id || !status || !teacher_id) {
+            return createErrorResponse(400, 'request_id, status, and teacher_id are required');
         }
 
-        const updateQuery = `
-      UPDATE retest_requests 
-      SET status = $1,
-          updated_at = NOW()
-      WHERE request_id = $2
-      RETURNING *
-    `;
-        const result = await pool.query(updateQuery, [status, requestId]);
+        // Check if request exists and belongs to the teacher's quiz
+        const { data: request, error: requestError } = await supabase
+            .from('retest_requests')
+            .select(`
+                id,
+                status,
+                quiz_id,
+                student_id,
+                quizzes (
+                    teacher_id
+                )
+            `)
+            .eq('id', request_id)
+            .single();
 
-        if (result.rows.length === 0) {
-            return {
-                statusCode: 404,
-                body: JSON.stringify({ error: 'Retest request not found' }),
-                headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-            };
+        if (requestError) {
+            console.error('Request check error:', requestError);
+            return createErrorResponse(404, 'Retest request not found');
         }
 
-        if (status === 'approved') {
-            await pool.query(`DELETE FROM retest_requests WHERE request_id = $1`, [requestId]);
-            await pool.query(`DELETE FROM quiz_attempts WHERE attempt_id = $1`, [result.rows[0].attempt_id]);
+        // Verify teacher owns the quiz
+        if (request.quizzes.teacher_id !== teacher_id) {
+            return createErrorResponse(403, 'Not authorized to update this retest request');
         }
 
-        return {
-            statusCode: 200,
-            body: JSON.stringify(result.rows[0]),
-            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-        };
+        if (request.status !== 'pending') {
+            return createErrorResponse(400, 'Request has already been processed');
+        }
+
+        // Start a transaction using RPC
+        const { data: result, error: rpcError } = await supabase.rpc('handle_retest_request', {
+            p_request_id: request_id,
+            p_status: status,
+            p_feedback: feedback,
+            p_quiz_id: request.quiz_id,
+            p_student_id: request.student_id
+        });
+
+        if (rpcError) {
+            console.error('Update request error:', rpcError);
+            return createErrorResponse(500, 'Failed to update retest request');
+        }
+
+        return createSuccessResponse({
+            message: `Retest request ${status}`,
+            request: {
+                id: request_id,
+                status,
+                feedback,
+                updated_at: new Date().toISOString()
+            }
+        });
+
     } catch (error) {
-        console.error('Error updating retest request:', error);
-        return {
-            statusCode: 500,
-            body: JSON.stringify({ error: 'Failed to update retest request' }),
-            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-        };
+        console.error('Update retest request error:', error);
+        return createErrorResponse(500, 'Internal server error', error.message);
     }
 };

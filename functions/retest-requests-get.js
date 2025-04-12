@@ -1,51 +1,84 @@
-const { Pool } = require('pg');
+const { 
+    supabase, 
+    handleCors, 
+    createErrorResponse, 
+    createSuccessResponse 
+} = require('./supabase-client');
 
-const pool = new Pool({
-    user: process.env.DB_USER,
-    host: process.env.DB_HOST,
-    database: process.env.DB_NAME,
-    password: process.env.DB_PASSWORD,
-    port: process.env.DB_PORT || 5432,
-});
-
-exports.handler = async (event, context) => {
-    if (event.httpMethod !== 'GET') {
-        return { statusCode: 405, body: 'Method Not Allowed' };
+exports.handler = async (event) => {
+    if (event.httpMethod === 'OPTIONS') {
+        return handleCors();
     }
 
-    const teacherId = event.path.split('/')[4]; // /api/retest-requests/teacher/:teacher_id
-
     try {
-        const query = `
-      SELECT 
-        rr.request_id,
-        rr.student_id,
-        sl.username AS student_name,
-        q.quiz_id,
-        q.quiz_name,
-        q.quiz_code,
-        rr.attempt_id,
-        rr.request_date,
-        rr.status
-      FROM retest_requests rr
-      JOIN student_login sl ON rr.student_id = sl.id
-      JOIN quizzes q ON rr.quiz_id = q.quiz_id
-      WHERE q.created_by = $1
-      ORDER BY rr.request_date DESC
-    `;
-        const result = await pool.query(query, [teacherId]);
+        const { student_id, teacher_id, status } = event.queryStringParameters || {};
 
-        return {
-            statusCode: 200,
-            body: JSON.stringify(result.rows),
-            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-        };
+        let query = supabase
+            .from('retest_requests')
+            .select(`
+                id,
+                quiz_id,
+                student_id,
+                reason,
+                status,
+                created_at,
+                quizzes (
+                    title,
+                    due_date
+                ),
+                students (
+                    name,
+                    email
+                )
+            `);
+
+        // Apply filters based on role
+        if (student_id) {
+            query = query.eq('student_id', student_id);
+        } else if (teacher_id) {
+            // Get quizzes created by the teacher
+            const { data: teacherQuizzes, error: quizError } = await supabase
+                .from('quizzes')
+                .select('id')
+                .eq('teacher_id', teacher_id);
+
+            if (quizError) {
+                console.error('Quiz fetch error:', quizError);
+                return createErrorResponse(500, 'Failed to fetch teacher quizzes');
+            }
+
+            const quizIds = teacherQuizzes.map(q => q.id);
+            query = query.in('quiz_id', quizIds);
+        }
+
+        // Apply status filter if provided
+        if (status) {
+            query = query.eq('status', status);
+        }
+
+        // Execute query
+        const { data: requests, error } = await query.order('created_at', { ascending: false });
+
+        if (error) {
+            console.error('Retest requests fetch error:', error);
+            return createErrorResponse(500, 'Failed to fetch retest requests');
+        }
+
+        return createSuccessResponse({
+            requests: requests.map(request => ({
+                id: request.id,
+                quiz_id: request.quiz_id,
+                student_id: request.student_id,
+                reason: request.reason,
+                status: request.status,
+                created_at: request.created_at,
+                quiz: request.quizzes,
+                student: request.students
+            }))
+        });
+
     } catch (error) {
-        console.error('Error fetching retest requests:', error);
-        return {
-            statusCode: 500,
-            body: JSON.stringify({ error: 'Failed to fetch retest requests' }),
-            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-        };
+        console.error('Get retest requests error:', error);
+        return createErrorResponse(500, 'Internal server error', error.message);
     }
 };

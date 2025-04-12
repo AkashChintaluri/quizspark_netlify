@@ -1,52 +1,80 @@
-const { Pool } = require('pg');
+const { 
+    supabase, 
+    handleCors, 
+    createErrorResponse, 
+    createSuccessResponse 
+} = require('./supabase-client');
 
-const pool = new Pool({
-    user: process.env.DB_USER,
-    host: process.env.DB_HOST,
-    database: process.env.DB_NAME,
-    password: process.env.DB_PASSWORD,
-    port: process.env.DB_PORT || 5432,
-});
-
-exports.handler = async (event, context) => {
-    if (event.httpMethod !== 'GET') {
-        return { statusCode: 405, body: 'Method Not Allowed' };
+exports.handler = async (event) => {
+    if (event.httpMethod === 'OPTIONS') {
+        return handleCors();
     }
 
-    const { quiz_id } = event.pathParameters || {};
-
     try {
-        const query = `
-      SELECT quiz_id, quiz_code, quiz_name
-      FROM quizzes
-      WHERE quiz_id = $1
-    `;
-        const result = await pool.query(query, [quiz_id]);
+        const body = event.isBase64Encoded
+            ? Buffer.from(event.body, 'base64').toString('utf8')
+            : event.body;
+        const { quiz_id } = JSON.parse(body);
 
-        if (result.rows.length === 0) {
-            return {
-                statusCode: 404,
-                body: JSON.stringify({ message: 'Quiz not found' }),
-                headers: { 'Content-Type': 'application/json' },
-            };
+        // Validate input
+        if (!quiz_id) {
+            return createErrorResponse(400, 'Missing quiz ID');
         }
 
-        const quiz = result.rows[0];
-        return {
-            statusCode: 200,
-            body: JSON.stringify({
-                quiz_id: quiz.quiz_id,
-                quiz_code: quiz.quiz_code,
-                quiz_name: quiz.quiz_name,
-            }),
-            headers: { 'Content-Type': 'application/json' },
+        // Get quiz details
+        const { data: quiz, error } = await supabase
+            .from('quizzes')
+            .select(`
+                id,
+                quiz_name,
+                quiz_code,
+                teacher_id,
+                questions,
+                due_date,
+                teacher_login (
+                    username
+                )
+            `)
+            .eq('id', quiz_id)
+            .single();
+
+        if (error) {
+            console.error('Quiz fetch error:', error);
+            return createErrorResponse(500, 'Failed to fetch quiz');
+        }
+
+        if (!quiz) {
+            return createErrorResponse(404, 'Quiz not found');
+        }
+
+        // Get quiz statistics
+        const { data: attempts, error: statsError } = await supabase
+            .from('quiz_attempts')
+            .select('score')
+            .eq('quiz_id', quiz_id);
+
+        let stats = {
+            total_attempts: 0,
+            average_score: 0
         };
+
+        if (!statsError && attempts) {
+            stats.total_attempts = attempts.length;
+            stats.average_score = attempts.length > 0
+                ? Math.round((attempts.reduce((sum, a) => sum + a.score, 0) / attempts.length) * 100) / 100
+                : 0;
+        }
+
+        return createSuccessResponse({
+            quiz: {
+                ...quiz,
+                teacher_name: quiz.teacher_login.username,
+                ...stats
+            }
+        });
+
     } catch (error) {
-        console.error('Error fetching quiz:', error);
-        return {
-            statusCode: 500,
-            body: JSON.stringify({ message: 'Failed to fetch quiz', error: error.message }),
-            headers: { 'Content-Type': 'application/json' },
-        };
+        console.error('Quiz fetch error:', error);
+        return createErrorResponse(500, 'Internal server error', error.message);
     }
 };

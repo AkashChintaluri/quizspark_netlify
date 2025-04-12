@@ -1,38 +1,71 @@
-const { Pool } = require('pg');
+const { 
+    supabase, 
+    handleCors, 
+    createErrorResponse, 
+    createSuccessResponse 
+} = require('./supabase-client');
 
-const pool = new Pool({
-    user: process.env.DB_USER,
-    host: process.env.DB_HOST,
-    database: process.env.DB_NAME,
-    password: process.env.DB_PASSWORD,
-    port: process.env.DB_PORT || 5432,
-});
-
-exports.handler = async (event, context) => {
-    if (event.httpMethod !== 'POST') {
-        return { statusCode: 405, body: 'Method Not Allowed' };
+exports.handler = async (event) => {
+    if (event.httpMethod === 'OPTIONS') {
+        return handleCors();
     }
 
-    const { student_id, teacher_id } = JSON.parse(event.body);
-
     try {
-        await pool.query(`
-      INSERT INTO subscriptions (student_id, teacher_id)
-      VALUES ($1, $2)
-      ON CONFLICT (student_id, teacher_id) DO NOTHING
-    `, [student_id, teacher_id]);
+        const body = event.isBase64Encoded
+            ? Buffer.from(event.body, 'base64').toString('utf8')
+            : event.body;
+        const { student_id, teacher_id } = JSON.parse(body);
 
-        return {
-            statusCode: 200,
-            body: JSON.stringify({ success: true }),
-            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-        };
+        // Validate input
+        if (!student_id || !teacher_id) {
+            return createErrorResponse(400, 'student_id and teacher_id are required');
+        }
+
+        // Check if subscription already exists
+        const { data: existingSub, error: checkError } = await supabase
+            .from('subscriptions')
+            .select('id')
+            .eq('student_id', student_id)
+            .eq('teacher_id', teacher_id)
+            .single();
+
+        if (checkError && checkError.code !== 'PGRST116') {
+            console.error('Subscription check error:', checkError);
+            return createErrorResponse(500, 'Failed to check existing subscription');
+        }
+
+        if (existingSub) {
+            return createErrorResponse(400, 'Already subscribed to this teacher');
+        }
+
+        // Create subscription
+        const { data: subscription, error: createError } = await supabase
+            .from('subscriptions')
+            .insert([{
+                student_id,
+                teacher_id,
+                subscribed_at: new Date().toISOString()
+            }])
+            .select()
+            .single();
+
+        if (createError) {
+            console.error('Subscribe error:', createError);
+            return createErrorResponse(500, 'Failed to subscribe to teacher');
+        }
+
+        return createSuccessResponse({
+            message: 'Successfully subscribed to teacher',
+            subscription: {
+                id: subscription.id,
+                student_id: subscription.student_id,
+                teacher_id: subscription.teacher_id,
+                subscribed_at: subscription.subscribed_at
+            }
+        });
+
     } catch (error) {
-        console.error('Subscription error:', error);
-        return {
-            statusCode: 500,
-            body: JSON.stringify({ error: 'Subscription failed' }),
-            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-        };
+        console.error('Subscribe error:', error);
+        return createErrorResponse(500, 'Internal server error', error.message);
     }
 };

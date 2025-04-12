@@ -1,50 +1,67 @@
-const { Pool } = require('pg');
+const { 
+    supabase, 
+    handleCors, 
+    createErrorResponse, 
+    createSuccessResponse 
+} = require('./supabase-client');
 
-const pool = new Pool({
-    user: process.env.DB_USER,
-    host: process.env.DB_HOST,
-    database: process.env.DB_NAME,
-    password: process.env.DB_PASSWORD,
-    port: process.env.DB_PORT || 5432,
-});
-
-exports.handler = async (event, context) => {
-    if (event.httpMethod !== 'PUT') {
-        return { statusCode: 405, body: 'Method Not Allowed' };
+exports.handler = async (event) => {
+    if (event.httpMethod === 'OPTIONS') {
+        return handleCors();
     }
 
-    const { quiz_id } = event.pathParameters || {};
-    const { quiz_name, due_date, questions } = JSON.parse(event.body);
-
     try {
-        const query = `
-      UPDATE quizzes
-      SET quiz_name = $1, due_date = $2, questions = $3::jsonb
-      WHERE quiz_id = $4
-      RETURNING quiz_id
-    `;
-        const values = [quiz_name, due_date, JSON.stringify(questions), quiz_id];
-        const result = await pool.query(query, values);
+        const body = event.isBase64Encoded
+            ? Buffer.from(event.body, 'base64').toString('utf8')
+            : event.body;
+        const { quiz_id, quiz_name, questions, due_date, teacher_id } = JSON.parse(body);
 
-        if (result.rows.length === 0) {
-            return {
-                statusCode: 404,
-                body: JSON.stringify({ message: 'Quiz not found' }),
-                headers: { 'Content-Type': 'application/json' },
-            };
+        // Validate input
+        if (!quiz_id || !teacher_id) {
+            return createErrorResponse(400, 'Missing required fields');
         }
 
-        return {
-            statusCode: 200,
-            body: JSON.stringify({ message: 'Quiz updated successfully' }),
-            headers: { 'Content-Type': 'application/json' },
-        };
+        // Verify teacher owns this quiz
+        const { data: existingQuiz, error: verifyError } = await supabase
+            .from('quizzes')
+            .select('teacher_id')
+            .eq('id', quiz_id)
+            .single();
+
+        if (verifyError || !existingQuiz) {
+            return createErrorResponse(404, 'Quiz not found');
+        }
+
+        if (existingQuiz.teacher_id !== teacher_id) {
+            return createErrorResponse(403, 'Unauthorized to modify this quiz');
+        }
+
+        // Build update object with only provided fields
+        const updateData = {};
+        if (quiz_name) updateData.quiz_name = quiz_name;
+        if (questions) updateData.questions = { questions };
+        if (due_date) updateData.due_date = due_date;
+
+        // Update quiz
+        const { data: updatedQuiz, error: updateError } = await supabase
+            .from('quizzes')
+            .update(updateData)
+            .eq('id', quiz_id)
+            .select()
+            .single();
+
+        if (updateError) {
+            console.error('Quiz update error:', updateError);
+            return createErrorResponse(500, 'Failed to update quiz');
+        }
+
+        return createSuccessResponse({
+            message: 'Quiz updated successfully',
+            quiz: updatedQuiz
+        });
+
     } catch (error) {
-        console.error('Error updating quiz:', error);
-        return {
-            statusCode: 500,
-            body: JSON.stringify({ message: 'Failed to update quiz', error: error.message }),
-            headers: { 'Content-Type': 'application/json' },
-        };
+        console.error('Quiz update error:', error);
+        return createErrorResponse(500, 'Internal server error', error.message);
     }
 };

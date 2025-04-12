@@ -1,37 +1,44 @@
-const { Pool } = require('pg');
+const { 
+    supabase, 
+    handleCors, 
+    createErrorResponse, 
+    createSuccessResponse 
+} = require('./supabase-client');
 
-const pool = new Pool({
-    user: process.env.DB_USER,
-    host: process.env.DB_HOST,
-    database: process.env.DB_NAME,
-    password: process.env.DB_PASSWORD,
-    port: process.env.DB_PORT || 5432,
-});
-
-exports.handler = async (event, context) => {
-    if (event.httpMethod !== 'POST') {
-        return { statusCode: 405, body: 'Method Not Allowed' };
+exports.handler = async (event) => {
+    if (event.httpMethod === 'OPTIONS') {
+        return handleCors();
     }
 
-    const { student_id, teacher_id } = JSON.parse(event.body);
-
     try {
-        await pool.query(`
-      DELETE FROM subscriptions 
-      WHERE student_id = $1 AND teacher_id = $2
-    `, [student_id, teacher_id]);
+        const body = event.isBase64Encoded
+            ? Buffer.from(event.body, 'base64').toString('utf8')
+            : event.body;
+        const { student_id, teacher_id } = JSON.parse(body);
 
-        return {
-            statusCode: 200,
-            body: JSON.stringify({ success: true }),
-            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-        };
+        // Validate input
+        if (!student_id || !teacher_id) {
+            return createErrorResponse(400, 'student_id and teacher_id are required');
+        }
+
+        // Delete subscription
+        const { error: deleteError } = await supabase
+            .from('subscriptions')
+            .delete()
+            .eq('student_id', student_id)
+            .eq('teacher_id', teacher_id);
+
+        if (deleteError) {
+            console.error('Unsubscribe error:', deleteError);
+            return createErrorResponse(500, 'Failed to unsubscribe from teacher');
+        }
+
+        return createSuccessResponse({
+            message: 'Successfully unsubscribed from teacher'
+        });
+
     } catch (error) {
-        console.error('Unsubscription error:', error);
-        return {
-            statusCode: 500,
-            body: JSON.stringify({ error: 'Unsubscription failed' }),
-            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-        };
+        console.error('Unsubscribe error:', error);
+        return createErrorResponse(500, 'Internal server error', error.message);
     }
 };
