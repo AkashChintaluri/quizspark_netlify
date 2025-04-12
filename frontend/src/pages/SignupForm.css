@@ -104,6 +104,7 @@
 
 .form-group select.placeholder {
     color: #a0aec0;
+    font-style: normal;
 }
 
 .form-group select option {
@@ -113,7 +114,7 @@
 
 .form-group select option[value=""] {
     color: #a0aec0;
-    font-style: italic;
+    font-style: normal;
 }
 
 .form-group select:focus {

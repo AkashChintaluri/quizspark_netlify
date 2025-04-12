@@ -12,7 +12,7 @@ function TeacherList({ studentId }) {
     const [searchTerm, setSearchTerm] = useState('');
     const [subscriptions, setSubscriptions] = useState(new Set());
     const [message, setMessage] = useState('');
-    const [isSubscribing, setIsSubscribing] = useState(false);
+    const [subscribingTeacherId, setSubscribingTeacherId] = useState(null);
 
     useEffect(() => {
         if (studentId) {
@@ -56,7 +56,7 @@ function TeacherList({ studentId }) {
         try {
             setError('');
             setMessage('');
-            setIsSubscribing(true);
+            setSubscribingTeacherId(teacherId);
 
             const response = await axios.post(`${API_BASE_URL}/subscribe`, {
                 student_id: studentId,
@@ -73,7 +73,7 @@ function TeacherList({ studentId }) {
             console.error('Error subscribing:', err);
             setError(err.response?.data?.error || 'Failed to subscribe to teacher');
         } finally {
-            setIsSubscribing(false);
+            setSubscribingTeacherId(null);
         }
     };
 
@@ -177,9 +177,9 @@ function TeacherList({ studentId }) {
                                         <button
                                             className="subscribe-btn"
                                             onClick={() => handleSubscribe(teacher.id)}
-                                            disabled={isSubscribing}
+                                            disabled={subscribingTeacherId !== null}
                                         >
-                                            {isSubscribing ? 'Subscribing...' : 'Subscribe'}
+                                            {subscribingTeacherId === teacher.id ? 'Subscribing...' : 'Subscribe'}
                                         </button>
                                     </div>
                                 ))}
