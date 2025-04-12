@@ -81,6 +81,7 @@ function StudentDashboard() {
                         setActiveTab={setActiveTab} 
                         currentUser={currentUser} 
                         location={location} 
+                        setCurrentUser={setCurrentUser}
                     />
                 </>
             ) : (
@@ -117,7 +118,7 @@ function Sidebar({ activeTab, currentUser, handleTabChange }) {
     );
 }
 
-function Content({ activeTab, setActiveTab, currentUser, location }) {
+function Content({ activeTab, setActiveTab, currentUser, location, setCurrentUser }) {
     const { pathname } = location;
 
     if (pathname.includes('/take-quiz/')) {
@@ -138,7 +139,7 @@ function Content({ activeTab, setActiveTab, currentUser, location }) {
         case 'leaderboard':
             return <LeaderboardContent currentUser={currentUser} />;
         case 'settings':
-            return <SettingsContent currentUser={currentUser} />;
+            return <SettingsContent currentUser={currentUser} setCurrentUser={setCurrentUser} />;
         default:
             return <HomeContent currentUser={currentUser} setActiveTab={setActiveTab} />;
     }
@@ -845,7 +846,7 @@ function LeaderboardContent({ currentUser }) {
     );
 }
 
-function SettingsContent({ currentUser }) {
+function SettingsContent({ currentUser, setCurrentUser }) {
     const navigate = useNavigate();
     const [showPasswordFields, setShowPasswordFields] = useState(false);
     const [showProfileFields, setShowProfileFields] = useState(false);
