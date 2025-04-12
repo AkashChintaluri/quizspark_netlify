@@ -856,7 +856,7 @@ function SettingsContent({ currentUser, setCurrentUser }) {
     });
     const [profileData, setProfileData] = useState({
         email: currentUser?.email || '',
-        name: currentUser?.username || ''
+        username: currentUser?.username || ''
     });
     const [message, setMessage] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -870,8 +870,10 @@ function SettingsContent({ currentUser, setCurrentUser }) {
     };
 
     const handlePasswordChange = async () => {
+        setIsLoading(true);
+        setMessage('');
         try {
-            const response = await axios.put(`${API_BASE_URL}/student/${currentUser.id}/password`, {
+            const response = await axios.put(`/.netlify/functions/student-password-put/${currentUser.id}`, {
                 currentPassword: formData.currentPassword,
                 newPassword: formData.newPassword
             });
@@ -887,15 +889,19 @@ function SettingsContent({ currentUser, setCurrentUser }) {
             }
         } catch (error) {
             console.error('Error changing password:', error);
-            setErrorMessage('Failed to change password. Please try again.');
+            setErrorMessage(error.response?.data?.error || 'Failed to change password. Please try again.');
             setTimeout(() => setErrorMessage(''), 3000);
+        } finally {
+            setIsLoading(false);
         }
     };
 
     const handleProfileUpdate = async () => {
+        setIsLoading(true);
+        setMessage('');
         try {
             const response = await axios.put(`/.netlify/functions/students-put/${currentUser.id}`, {
-                name: profileData.name,
+                username: profileData.username,
                 email: profileData.email
             });
             
@@ -914,8 +920,10 @@ function SettingsContent({ currentUser, setCurrentUser }) {
             }
         } catch (error) {
             console.error('Error updating profile:', error);
-            setErrorMessage('Failed to update profile. Please try again.');
+            setErrorMessage(error.response?.data?.error || 'Failed to update profile. Please try again.');
             setTimeout(() => setErrorMessage(''), 3000);
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -1007,14 +1015,14 @@ function SettingsContent({ currentUser, setCurrentUser }) {
                         </div>
                         <div className="panel-content">
                             <div className="input-group">
-                                <label htmlFor="name">Name</label>
+                                <label htmlFor="username">Username</label>
                                 <input
                                     type="text"
-                                    id="name"
-                                    name="name"
-                                    value={profileData.name}
+                                    id="username"
+                                    name="username"
+                                    value={profileData.username}
                                     onChange={handleProfileInputChange}
-                                    placeholder="Enter your name"
+                                    placeholder="Enter your username"
                                 />
                             </div>
                             <div className="input-group">
