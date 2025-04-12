@@ -54,16 +54,8 @@ function App() {
                 <div className="App">
                     <Routes>
                         <Route path="/" element={<Layout><Home /></Layout>} />
-                        <Route path="/student-login" element={
-                            user?.role === 'student' ? 
-                                <Navigate to="/student-dashboard" replace /> : 
-                                <Layout><StudentLogin setUser={setUser} /></Layout>
-                        } />
-                        <Route path="/teacher-login" element={
-                            user?.role === 'teacher' ? 
-                                <Navigate to="/teacher-dashboard" replace /> : 
-                                <Layout><TeacherLogin setUser={setUser} /></Layout>
-                        } />
+                        <Route path="/student-login" element={<Layout><StudentLogin setUser={setUser} /></Layout>} />
+                        <Route path="/teacher-login" element={<Layout><TeacherLogin setUser={setUser} /></Layout>} />
                         <Route path="/signup" element={<Layout><SignupForm /></Layout>} />
 
                         {/* Student Dashboard Routes */}
