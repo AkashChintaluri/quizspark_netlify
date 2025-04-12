@@ -13,11 +13,17 @@
 }
 
 .teacher-list .main-header {
-    font-size: 1.5rem;
-    font-weight: 600;
-    color: #2d3748;
-    margin-bottom: 1.5rem;
+    font-size: 2rem;
+    font-weight: 700;
+    color: #ffffff;
+    margin-bottom: 1rem;
     text-align: center;
+    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+    padding: 1rem;
+    border-radius: 15px 15px 0 0;
+    box-shadow: 0 4px 8px rgba(90, 103, 216, 0.2);
+    position: relative;
+    z-index: 1;
 }
 
 .teacher-list .main-header::before {
@@ -47,8 +53,9 @@
     border-radius: 8px;
     padding: 0.75rem;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
+    justify-content: space-between;
     transition: all 0.2s ease;
     overflow: hidden;
 }
@@ -56,22 +63,27 @@
 .teacher-card:hover {
     transform: translateY(-3px);
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
-    border-color: #667eea; /* Matches button hover */
+    border-color: #667eea;
+}
+
+.teacher-info {
+    flex: 1;
+    margin-right: 0.5rem;
 }
 
 .teacher-info h4 {
     font-size: 1.1rem;
     font-weight: 600;
     color: #2d3748;
-    text-align: center;
+    text-align: left;
     margin-bottom: 0.25rem;
 }
 
 .teacher-info p {
     font-size: 0.8rem;
     color: #64748b;
-    text-align: center;
-    margin-bottom: 0.25rem;
+    text-align: left;
+    margin-bottom: 0;
 }
 
 .subscribe-btn,
@@ -83,13 +95,13 @@
     border-radius: 20px;
     cursor: pointer;
     transition: all 0.2s ease;
-    width: 100%;
     text-align: center;
-    margin-top: 0.5rem;
+    margin-top: 0;
+    white-space: nowrap;
 }
 
 .subscribe-btn {
-    background: linear-gradient(90deg, #7f9cf5 0%, #667eea 100%); /* Matches start-quiz-btn */
+    background: linear-gradient(90deg, #7f9cf5 0%, #667eea 100%);
     color: #fff;
 }
 
@@ -100,7 +112,7 @@
 }
 
 .unsubscribe-btn {
-    background: linear-gradient(90deg, #dc2626 0%, #ef4444 100%); /* Matches delete-notification-btn */
+    background: linear-gradient(90deg, #dc2626 0%, #ef4444 100%);
     color: #fff;
 }
 
@@ -125,7 +137,7 @@
     padding: 0.75rem 1.5rem;
     font-size: 1rem;
     font-weight: 600;
-    background: linear-gradient(90deg, #7f9cf5 0%, #667eea 100%); /* Matches buttons */
+    background: linear-gradient(90deg, #7f9cf5 0%, #667eea 100%);
     color: #fff;
     border: none;
     border-radius: 20px;
@@ -155,7 +167,7 @@
 }
 
 .search-input {
-    width: 100%; /* Full width for uniformity */
+    width: 100%;
     padding: 0.875rem 1.25rem;
     font-size: 1rem;
     border: 2px solid #e2e8f0;
@@ -166,7 +178,7 @@
 }
 
 .search-input:focus {
-    border-color: #4f46e5; /* Matches dashboard focus */
+    border-color: #4f46e5;
     box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
     outline: none;
 }
@@ -259,9 +271,20 @@
         padding: 0.75rem;
     }
 
+    .teacher-card {
+        flex-direction: column; /* Stack on very small screens */
+        text-align: center;
+    }
+
+    .teacher-info {
+        margin-right: 0;
+        margin-bottom: 0.5rem;
+    }
+
     .subscribe-btn,
     .unsubscribe-btn {
         padding: 0.4rem 0.8rem;
         font-size: 0.8rem;
+        width: 100%; /* Full width on small screens */
     }
 }

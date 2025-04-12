@@ -117,7 +117,7 @@ function TeacherList({ studentId }) {
 
     return (
         <div className="teacher-list">
-            <h2 className="main-header">Teachers</h2> {/* Single header */}
+            <h2 className="main-header">Teachers</h2>
             {error && <div className="error-message">{error}</div>}
             {message && <div className="success-message">{message}</div>}
 
