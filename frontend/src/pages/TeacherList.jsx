@@ -12,8 +12,6 @@ function TeacherList({ studentId }) {
     const [searchTerm, setSearchTerm] = useState('');
     const [subscriptions, setSubscriptions] = useState(new Set());
     const [message, setMessage] = useState('');
-    const [showSuccess, setShowSuccess] = useState(false);
-    const [selectedTeacher, setSelectedTeacher] = useState(null);
     const [isSubscribing, setIsSubscribing] = useState(false);
 
     useEffect(() => {
@@ -33,7 +31,6 @@ function TeacherList({ studentId }) {
                 axios.get(`${API_BASE_URL}/subscriptions?student_id=${studentId}`)
             ]);
 
-            // Handle teachers data
             if (teachersResponse.data?.teachers) {
                 setTeachers(teachersResponse.data.teachers);
             } else {
@@ -41,7 +38,6 @@ function TeacherList({ studentId }) {
                 setTeachers([]);
             }
 
-            // Handle subscriptions data
             if (subscriptionsResponse.data?.subscriptions) {
                 setSubscriptions(new Set(subscriptionsResponse.data.subscriptions.map(sub => sub.teacher_id)));
             } else {
@@ -58,7 +54,6 @@ function TeacherList({ studentId }) {
 
     const handleSubscribe = async (teacherId) => {
         try {
-            setLoading(true);
             setError('');
             setMessage('');
             setIsSubscribing(true);
@@ -69,10 +64,8 @@ function TeacherList({ studentId }) {
             });
 
             if (response.data?.success) {
-                setMessage('Successfully subscribed to teacher');
+                setMessage(`Successfully subscribed to ${teachers.find(t => t.id === teacherId)?.username}!`);
                 setSubscriptions(prev => new Set([...prev, teacherId]));
-                setShowSuccess(true);
-                setSelectedTeacher(teachers.find(t => t.id === teacherId));
             } else {
                 throw new Error(response.data?.error || 'Failed to subscribe');
             }
@@ -80,14 +73,12 @@ function TeacherList({ studentId }) {
             console.error('Error subscribing:', err);
             setError(err.response?.data?.error || 'Failed to subscribe to teacher');
         } finally {
-            setLoading(false);
             setIsSubscribing(false);
         }
     };
 
     const handleUnsubscribe = async (teacherId) => {
         try {
-            setLoading(true);
             setError('');
             setMessage('');
 
@@ -97,7 +88,7 @@ function TeacherList({ studentId }) {
             });
 
             if (response.data?.success) {
-                setMessage('Successfully unsubscribed from teacher');
+                setMessage(`Successfully unsubscribed from ${teachers.find(t => t.id === teacherId)?.username}.`);
                 setSubscriptions(prev => {
                     const newSet = new Set(prev);
                     newSet.delete(teacherId);
@@ -126,32 +117,33 @@ function TeacherList({ studentId }) {
 
     return (
         <div className="teacher-list">
+            <h2>Teachers</h2>
             {error && <div className="error-message">{error}</div>}
             {message && <div className="success-message">{message}</div>}
 
-            {showSuccess && (
-                <div className="success-message">
-                    <p>🎉 Successfully subscribed to {selectedTeacher?.username}! You can now access their content.</p>
-                </div>
-            )}
-
-            <h3>Your Teachers</h3>
-            <div className="teachers-grid">
-                {teachers.map((teacher) => (
-                    <div key={teacher.id} className="teacher-card">
-                        <div className="teacher-info">
-                            <h3>{teacher.username}</h3>
-                            <p>{teacher.email}</p>
-                        </div>
-                        <button 
-                            className="subscribe-btn"
-                            onClick={() => handleSubscribe(teacher.id)}
-                            disabled={isSubscribing}
-                        >
-                            {isSubscribing ? 'Subscribing...' : 'Subscribe'}
-                        </button>
+            <div className="teachers-section">
+                <h3>Your Teachers</h3>
+                {subscribedTeachers.length === 0 ? (
+                    <div className="no-teachers">You are not subscribed to any teachers yet.</div>
+                ) : (
+                    <div className="teachers-grid">
+                        {subscribedTeachers.map((teacher) => (
+                            <div key={teacher.id} className="teacher-card">
+                                <div className="teacher-info">
+                                    <h4>{teacher.username}</h4>
+                                    <p>{teacher.email}</p>
+                                </div>
+                                <button
+                                    className="unsubscribe-btn"
+                                    onClick={() => handleUnsubscribe(teacher.id)}
+                                    disabled={loading}
+                                >
+                                    Unsubscribe
+                                </button>
+                            </div>
+                        ))}
                     </div>
-                ))}
+                )}
             </div>
 
             <div className="unsubscribed-section">
@@ -160,7 +152,7 @@ function TeacherList({ studentId }) {
                     onClick={() => setShowDropdown(!showDropdown)}
                     disabled={loading}
                 >
-                    {showDropdown ? 'Hide Available Teachers' : 'Show Available Teachers'}
+                    {showDropdown ? 'Hide Available Teachers' : 'Find More Teachers'}
                 </button>
 
                 {showDropdown && (
@@ -174,18 +166,21 @@ function TeacherList({ studentId }) {
                             disabled={loading}
                         />
                         {filteredUnsubscribedTeachers.length === 0 ? (
-                            <div className="no-teachers">No teachers found</div>
+                            <div className="no-teachers">No teachers found.</div>
                         ) : (
                             <ul className="teacher-dropdown-list">
                                 {filteredUnsubscribedTeachers.map((teacher) => (
                                     <li key={teacher.id} className="dropdown-item">
-                                        <span>{teacher.username}</span>
+                                        <div className="teacher-info">
+                                            <span>{teacher.username}</span>
+                                            <p>{teacher.email}</p>
+                                        </div>
                                         <button
                                             className="subscribe-btn"
                                             onClick={() => handleSubscribe(teacher.id)}
-                                            disabled={loading}
+                                            disabled={isSubscribing}
                                         >
-                                            Subscribe
+                                            {isSubscribing ? 'Subscribing...' : 'Subscribe'}
                                         </button>
                                     </li>
                                 ))}
@@ -199,104 +194,3 @@ function TeacherList({ studentId }) {
 }
 
 export default TeacherList;
-
-<style jsx>{`
-    .teacher-list {
-        width: 100%;
-        max-width: 800px;
-        margin: 2rem auto;
-        padding: 0 1rem;
-    }
-
-    .teacher-list h3 {
-        font-size: 1.5rem;
-        color: #2d3748;
-        margin-bottom: 1.5rem;
-        text-align: center;
-    }
-
-    .teachers-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-        gap: 1.5rem;
-        width: 100%;
-    }
-
-    .teacher-card {
-        background: white;
-        border-radius: 8px;
-        padding: 1.5rem;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        transition: all 0.3s ease;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        border: 1px solid #e2e8f0;
-    }
-
-    .teacher-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    }
-
-    .teacher-info {
-        margin-bottom: 1rem;
-    }
-
-    .teacher-info h3 {
-        font-size: 1.25rem;
-        color: #2d3748;
-        margin-bottom: 0.5rem;
-    }
-
-    .teacher-info p {
-        color: #4a5568;
-        font-size: 0.9rem;
-    }
-
-    .subscribe-btn {
-        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border: none;
-        padding: 0.75rem 1.5rem;
-        border-radius: 8px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        width: 100%;
-    }
-
-    .subscribe-btn:hover:not(:disabled) {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
-    }
-
-    .subscribe-btn:disabled {
-        opacity: 0.7;
-        cursor: not-allowed;
-    }
-
-    .success-message {
-        position: fixed;
-        bottom: 20px;
-        right: 20px;
-        background-color: #48bb78;
-        color: white;
-        padding: 1rem 2rem;
-        border-radius: 8px;
-        font-size: 1rem;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        animation: slideIn 0.3s ease-out;
-    }
-
-    @keyframes slideIn {
-        from {
-            transform: translateY(100%);
-            opacity: 0;
-        }
-        to {
-            transform: translateY(0);
-            opacity: 1;
-        }
-    }
-`}</style>
