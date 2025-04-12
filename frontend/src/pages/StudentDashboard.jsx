@@ -855,8 +855,7 @@ function SettingsContent({ currentUser }) {
     });
     const [profileData, setProfileData] = useState({
         email: currentUser?.email || '',
-        name: currentUser?.username || '',
-        bio: currentUser?.bio || ''
+        name: currentUser?.username || ''
     });
     const [message, setMessage] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -894,18 +893,22 @@ function SettingsContent({ currentUser }) {
 
     const handleProfileUpdate = async () => {
         try {
-            const response = await axios.put(`${API_BASE_URL}/student/${currentUser.id}`, {
+            const response = await axios.put(`${API_BASE_URL}/students/${currentUser.id}`, {
                 name: profileData.name,
-                email: profileData.email,
-                bio: profileData.bio
+                email: profileData.email
             });
             if (response.data.success) {
-                setCurrentUser(prev => ({
-                    ...prev,
-                    ...profileData
-                }));
+                const updatedUser = {
+                    ...currentUser,
+                    username: profileData.name,
+                    email: profileData.email
+                };
+                localStorage.setItem('user', JSON.stringify(updatedUser));
+                setCurrentUser(updatedUser);
                 setSuccessMessage('Profile updated successfully!');
                 setTimeout(() => setSuccessMessage(''), 3000);
+                setShowProfileFields(false);
+                setActiveCard(null);
             }
         } catch (error) {
             console.error('Error updating profile:', error);
@@ -1021,16 +1024,6 @@ function SettingsContent({ currentUser }) {
                                     value={profileData.email}
                                     onChange={handleProfileInputChange}
                                     placeholder="Enter your email"
-                                />
-                            </div>
-                            <div className="input-group">
-                                <label htmlFor="bio">Bio</label>
-                                <textarea
-                                    id="bio"
-                                    name="bio"
-                                    value={profileData.bio}
-                                    onChange={handleProfileInputChange}
-                                    placeholder="Enter your bio"
                                 />
                             </div>
                             <button

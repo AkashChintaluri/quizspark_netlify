@@ -10,7 +10,7 @@ function StudentLogin() {
     const [showPopup, setShowPopup] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
 
-    const BASE_URL = process.env.REACT_APP_API_BASE_PATH || '/api';
+    const BASE_URL = import.meta.env.VITE_API_BASE_PATH || '/api';
 
     useEffect(() => {
         if (showPopup) {
