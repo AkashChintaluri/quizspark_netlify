@@ -132,7 +132,6 @@ function TeacherList({ studentId }) {
                                 <div className="teacher-info">
                                     <h4>{teacher.username}</h4>
                                     <p>{teacher.email}</p>
-                                    <p className="teacher-bio">{teacher.bio || 'No bio available'}</p>
                                 </div>
                                 <button
                                     className="unsubscribe-btn"
@@ -175,7 +174,6 @@ function TeacherList({ studentId }) {
                                         <div className="teacher-info">
                                             <h4>{teacher.username}</h4>
                                             <p>{teacher.email}</p>
-                                            <p className="teacher-bio">{teacher.bio || 'No bio available'}</p>
                                         </div>
                                         <button
                                             className="subscribe-btn"
