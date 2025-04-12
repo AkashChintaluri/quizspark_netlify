@@ -190,34 +190,67 @@ body {
 }
 
 .student-dashboard .quiz-card {
-    padding: 1rem;
-    background: linear-gradient(135deg, #edf2f7 0%, #ffffff 100%);
-    border-radius: 10px;
-    border: 1px solid #e2e8f0;
+    background: white;
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     transition: all 0.3s ease;
+    cursor: pointer;
+    border: 1px solid #e2e8f0;
 }
 
 .student-dashboard .quiz-card:hover {
-    transform: translateY(-5px);
-    border-color: #667eea;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
-.student-dashboard .quiz-card h4 {
-    font-size: 1.2rem;
-    font-weight: 600;
+.student-dashboard .quiz-card-content {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.student-dashboard .quiz-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.student-dashboard .quiz-header h3 {
+    font-size: 1.25rem;
     color: #2d3748;
-    margin-bottom: 0.25rem;
+    margin: 0;
 }
 
-.student-dashboard .quiz-card p {
+.student-dashboard .quiz-code {
     font-size: 0.9rem;
-    color: #718096;
-    margin: 0.25rem 0;
+    color: #4a5568;
+    background: #f7fafc;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
 }
 
-.student-dashboard .quiz-card.clickable {
-    cursor: pointer;
+.student-dashboard .quiz-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.student-dashboard .detail-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.student-dashboard .detail-item .label {
+    font-size: 0.9rem;
+    color: #4a5568;
+}
+
+.student-dashboard .detail-item .value {
+    font-size: 0.9rem;
+    color: #2d3748;
+    font-weight: 500;
 }
 
 .student-dashboard .take-quiz-content,

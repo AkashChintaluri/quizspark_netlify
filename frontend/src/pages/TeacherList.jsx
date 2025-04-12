@@ -135,7 +135,7 @@ function TeacherList({ studentId }) {
                 </div>
             )}
 
-            <h2>Your Teachers</h2>
+            <h3>Your Teachers</h3>
             <div className="teachers-grid">
                 {teachers.map((teacher) => (
                     <div key={teacher.id} className="teacher-card">
@@ -203,13 +203,13 @@ export default TeacherList;
 <style jsx>{`
     .teacher-list {
         width: 100%;
-        max-width: 1200px;
+        max-width: 800px;
         margin: 2rem auto;
         padding: 0 1rem;
     }
 
-    .teacher-list h2 {
-        font-size: 1.8rem;
+    .teacher-list h3 {
+        font-size: 1.5rem;
         color: #2d3748;
         margin-bottom: 1.5rem;
         text-align: center;
@@ -217,16 +217,16 @@ export default TeacherList;
 
     .teachers-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
         gap: 1.5rem;
         width: 100%;
     }
 
     .teacher-card {
         background: white;
-        border-radius: 12px;
+        border-radius: 8px;
         padding: 1.5rem;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         transition: all 0.3s ease;
         display: flex;
         flex-direction: column;
@@ -235,9 +235,8 @@ export default TeacherList;
     }
 
     .teacher-card:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 8px 12px rgba(0, 0, 0, 0.15);
-        border-color: #667eea;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     }
 
     .teacher-info {
