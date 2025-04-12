@@ -1,0 +1,9 @@
+{
+  "name": "quizspark-functions",
+  "version": "1.0.0",
+  "description": "Netlify Functions for QuizSpark",
+  "main": "index.js",
+  "dependencies": {
+    "axios": "^1.6.7"
+  }
+} 

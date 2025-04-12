@@ -9,7 +9,11 @@ import './StudentDashboard.css';
 import './TakeQuiz.css';
 import TeacherList from './TeacherList';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://quizspark-backend.onrender.com/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+
+// Remove axios default configuration since we're using Netlify functions
+// axios.defaults.withCredentials = true;
+// axios.defaults.headers.common['Access-Control-Allow-Origin'] = '*';
 
 function StudentDashboard() {
     const [activeTab, setActiveTab] = useState('home');
@@ -93,7 +97,7 @@ function StudentDashboard() {
             try {
                 setLoading(true);
                 setError('');
-                const response = await axios.get(`${API_BASE_URL}/quiz/${quizCode}`);
+                const response = await axios.get(`${API_BASE_URL}/quiz?quizCode=${quizCode}`);
                 
                 if (response.data) {
                     setQuizData({
@@ -445,7 +449,7 @@ function TakeQuizContent({ currentUser, quizCode }) {
                 setLoading(true);
                 setError('');
                 console.log('Fetching quiz with code:', quizCode);
-                const response = await axios.get(`${API_BASE_URL}/quizzes/code/${quizCode}`);
+                const response = await axios.get(`${API_BASE_URL}/quiz?quizCode=${quizCode}`);
                 console.log('Quiz response:', response.data);
                 
                 if (response.data) {
