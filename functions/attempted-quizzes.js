@@ -26,7 +26,8 @@ exports.handler = async (event) => {
                 quiz_id,
                 score,
                 total_questions,
-                completed_at,
+                attempt_date,
+                is_completed,
                 quiz:quizzes (
                     quiz_name,
                     quiz_code,
@@ -37,7 +38,7 @@ exports.handler = async (event) => {
             `)
             .eq('user_id', student_id)
             .eq('is_completed', true)
-            .order('completed_at', { ascending: false });
+            .order('attempt_date', { ascending: false });
 
         if (attemptError) {
             console.error('Quiz attempts fetch error:', attemptError);
@@ -65,7 +66,7 @@ exports.handler = async (event) => {
                 quiz_code: attempt.quiz?.quiz_code || '',
                 score: attempt.score,
                 total_questions: attempt.total_questions,
-                completed_at: attempt.completed_at,
+                completed_at: attempt.attempt_date,
                 due_date: attempt.quiz?.due_date || '',
                 created_at: attempt.quiz?.created_at || '',
                 teacher_login: {

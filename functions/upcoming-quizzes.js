@@ -35,7 +35,7 @@ exports.handler = async (event) => {
         const { data: quizzes, error: quizError } = await supabase
             .from('quizzes')
             .select(`
-                id,
+                quiz_id,
                 quiz_name,
                 quiz_code,
                 created_by,
@@ -63,7 +63,7 @@ exports.handler = async (event) => {
             .select('quiz_id')
             .eq('user_id', student_id)
             .eq('is_completed', true)
-            .in('quiz_id', quizzes.map(q => q.id));
+            .in('quiz_id', quizzes.map(q => q.quiz_id));
 
         if (attemptError) {
             console.error('Attempts fetch error:', attemptError);
@@ -74,7 +74,7 @@ exports.handler = async (event) => {
 
         return createSuccessResponse({
             quizzes: quizzes.map(quiz => ({
-                quiz_id: quiz.id,
+                quiz_id: quiz.quiz_id,
                 quiz_name: quiz.quiz_name,
                 quiz_code: quiz.quiz_code,
                 due_date: quiz.due_date,
@@ -84,7 +84,7 @@ exports.handler = async (event) => {
                     username: quiz.teacher_login?.username || '',
                     email: quiz.teacher_login?.email || ''
                 },
-                is_attempted: attemptedQuizIds.has(quiz.id)
+                is_attempted: attemptedQuizIds.has(quiz.quiz_id)
             }))
         });
 
