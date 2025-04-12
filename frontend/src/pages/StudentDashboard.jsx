@@ -260,9 +260,6 @@ function HomeContent({ currentUser, setActiveTab }) {
                                                     <span className="value">{quiz.teacher_login?.username || 'Unknown'}</span>
                                                 </div>
                                             </div>
-                                            <div className="quiz-actions">
-                                                <button className="take-quiz-btn">Take Quiz</button>
-                                            </div>
                                         </div>
                                     </div>
                                 ))}

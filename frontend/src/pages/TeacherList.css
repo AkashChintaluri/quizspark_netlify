@@ -18,9 +18,15 @@
     color: #2d3748;
     margin-bottom: 1.5rem;
     text-align: center;
-    padding: 1rem;
+    padding: 0;
+    background: none;
+    box-shadow: none;
+}
+
+.teacher-list .content {
     background: white;
     border-radius: 12px;
+    padding: 2rem;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
