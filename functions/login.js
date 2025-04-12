@@ -1,11 +1,31 @@
 const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: {
-        rejectUnauthorized: false
-    }
+// Parse database URL and ensure SSL is properly configured
+const getDbConfig = () => {
+    const connectionString = process.env.DATABASE_URL;
+    return {
+        connectionString,
+        ssl: {
+            rejectUnauthorized: false,
+            sslmode: 'require'
+        },
+        // Add connection timeout and retry settings
+        connectionTimeoutMillis: 5000,
+        query_timeout: 10000,
+        statement_timeout: 10000,
+        max: 20,
+        idleTimeoutMillis: 30000,
+        connectionRetryAttempts: 3
+    };
+};
+
+const pool = new Pool(getDbConfig());
+
+// Add error handler for pool
+pool.on('error', (err) => {
+    console.error('Unexpected error on idle client', err);
+    process.exit(-1);
 });
 
 exports.handler = async (event) => {
@@ -50,8 +70,20 @@ exports.handler = async (event) => {
             };
         }
 
-        // Get database connection
-        client = await pool.connect();
+        // Test database connection before proceeding
+        try {
+            client = await pool.connect();
+        } catch (dbError) {
+            console.error('Database connection error:', dbError);
+            return {
+                statusCode: 500,
+                headers,
+                body: JSON.stringify({
+                    error: 'Database connection failed',
+                    details: dbError.message
+                })
+            };
+        }
 
         // Query user table
         const table = `${userType}_login`;
