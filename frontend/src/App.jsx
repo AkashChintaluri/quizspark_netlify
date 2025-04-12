@@ -34,7 +34,15 @@ function App() {
         const storedUser = localStorage.getItem('user');
         if (storedUser) {
             try {
-                setUser(JSON.parse(storedUser));
+                const parsedUser = JSON.parse(storedUser);
+                setUser(parsedUser);
+                // Redirect to appropriate dashboard if user is logged in
+                if (parsedUser?.role) {
+                    const currentPath = window.location.pathname;
+                    if (!currentPath.includes(`${parsedUser.role}-dashboard`)) {
+                        window.location.href = `/${parsedUser.role}-dashboard`;
+                    }
+                }
             } catch (error) {
                 console.error('Error parsing user data:', error);
                 localStorage.removeItem('user');
@@ -52,24 +60,60 @@ function App() {
             <Router basename="/">
                 <div className="App">
                     <Routes>
-                        <Route path="/" element={<Layout><Home /></Layout>} />
-                        <Route path="/student-login" element={<Layout><StudentLogin setUser={setUser} /></Layout>} />
-                        <Route path="/teacher-login" element={<Layout><TeacherLogin setUser={setUser} /></Layout>} />
-                        <Route path="/signup" element={<Layout><SignupForm /></Layout>} />
+                        <Route 
+                            path="/" 
+                            element={
+                                user ? 
+                                    <Navigate to={`/${user.role}-dashboard`} replace /> : 
+                                    <Layout><Home /></Layout>
+                            } 
+                        />
+                        <Route 
+                            path="/student-login" 
+                            element={
+                                user?.role === 'student' ? 
+                                    <Navigate to="/student-dashboard" replace /> : 
+                                    <Layout><StudentLogin setUser={setUser} /></Layout>
+                            } 
+                        />
+                        <Route 
+                            path="/teacher-login" 
+                            element={
+                                user?.role === 'teacher' ? 
+                                    <Navigate to="/teacher-dashboard" replace /> : 
+                                    <Layout><TeacherLogin setUser={setUser} /></Layout>
+                            } 
+                        />
+                        <Route 
+                            path="/signup" 
+                            element={
+                                user ? 
+                                    <Navigate to={`/${user.role}-dashboard`} replace /> : 
+                                    <Layout><SignupForm /></Layout>
+                            } 
+                        />
 
                         {/* Student Dashboard Routes */}
                         <Route 
                             path="/student-dashboard/*" 
-                            element={user?.role === 'student' ? <StudentDashboard /> : <Navigate to="/" />} 
+                            element={
+                                user?.role === 'student' ? 
+                                    <StudentDashboard /> : 
+                                    <Navigate to="/student-login" replace />
+                            } 
                         />
 
                         {/* Teacher Dashboard Routes */}
                         <Route 
                             path="/teacher-dashboard/*" 
-                            element={user?.role === 'teacher' ? <TeacherDashboard /> : <Navigate to="/" />} 
+                            element={
+                                user?.role === 'teacher' ? 
+                                    <TeacherDashboard /> : 
+                                    <Navigate to="/teacher-login" replace />
+                            } 
                         />
 
-                        <Route path="*" element={<Navigate to="/" />} />
+                        <Route path="*" element={<Navigate to="/" replace />} />
                     </Routes>
                 </div>
             </Router>
