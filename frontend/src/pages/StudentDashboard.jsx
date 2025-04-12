@@ -61,6 +61,10 @@ function StudentDashboard() {
         }
     };
 
+    const handleQuizClick = (quizCode) => {
+        navigate(`/take-quiz/${quizCode}`);
+    };
+
     if (loading) {
         return <div className="loading-screen">Loading dashboard...</div>;
     }
@@ -122,7 +126,7 @@ function Content({ activeTab, setActiveTab, currentUser, location, setCurrentUse
     const { pathname } = location;
 
     if (pathname.includes('/take-quiz/')) {
-        return <TakeQuizContent currentUser={currentUser} />;
+        return <TakeQuiz />;
     }
 
     if (pathname.includes('/quiz/')) {
@@ -133,7 +137,7 @@ function Content({ activeTab, setActiveTab, currentUser, location, setCurrentUse
         case 'home':
             return <HomeContent currentUser={currentUser} setActiveTab={setActiveTab} />;
         case 'take quiz':
-            return <TakeQuizContent currentUser={currentUser} />;
+            return <TakeQuiz />;
         case 'results':
             return <ResultsContent currentUser={currentUser} setActiveTab={setActiveTab} />;
         case 'leaderboard':
@@ -243,7 +247,7 @@ function HomeContent({ currentUser, setActiveTab }) {
                                     <div
                                         key={quiz.quiz_id}
                                         className="quiz-card"
-                                        onClick={() => handleUpcomingQuizClick(quiz.quiz_code)}
+                                        onClick={() => handleQuizClick(quiz.quiz_code)}
                                     >
                                         <div className="quiz-card-content">
                                             <div className="quiz-header">
@@ -307,207 +311,6 @@ function HomeContent({ currentUser, setActiveTab }) {
                     <TeacherList studentId={currentUser?.id} />
                 </>
             )}
-        </div>
-    );
-}
-
-function TakeQuizContent({ currentUser }) {
-    const [quizzes, setQuizzes] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-
-    useEffect(() => {
-        const fetchQuizzes = async () => {
-            try {
-                setLoading(true);
-                setError(null);
-                const response = await axios.get(`${API_BASE_URL}/upcoming-quizzes?student_id=${currentUser.id}`);
-                
-                if (response.data?.quizzes) {
-                    // Transform the data to match the expected structure
-                    const transformedQuizzes = response.data.quizzes.map(quiz => ({
-                        id: quiz.quiz_id,
-                        title: quiz.quiz_name,
-                        code: quiz.quiz_code,
-                        dueDate: quiz.due_date,
-                        teacher: {
-                            name: quiz.teacher_login?.username || '',
-                            email: quiz.teacher_login?.email || ''
-                        }
-                    }));
-
-                    setQuizzes(transformedQuizzes);
-                } else {
-                    console.warn('Unexpected response format:', response.data);
-                    setQuizzes([]);
-                }
-            } catch (err) {
-                console.error('Error fetching quizzes:', err);
-                setError('Failed to load quizzes. Please try again later.');
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchQuizzes();
-    }, [currentUser.id]);
-
-    const [quizCode, setQuizCode] = useState('');
-    const [quizData, setQuizData] = useState(null);
-    const [selectedAnswers, setSelectedAnswers] = useState({});
-    const [showQuizCodeInput, setShowQuizCodeInput] = useState(true);
-    const [retestMessage, setRetestMessage] = useState('');
-    const [retestLoading, setRetestLoading] = useState(false);
-    const { quizCode: urlQuizCode } = useParams();
-    const navigate = useNavigate();
-
-    useEffect(() => {
-        if (urlQuizCode) {
-            setQuizCode(urlQuizCode);
-            setShowQuizCodeInput(false);
-            fetchQuiz(urlQuizCode);
-        } else {
-            setShowQuizCodeInput(true);
-            setQuizData(null);
-        }
-    }, [urlQuizCode, currentUser?.id]);
-
-    const fetchQuiz = async (code) => {
-        setError('');
-        setLoading(true);
-        try {
-            if (!currentUser?.id) {
-                throw new Error('User not authenticated');
-            }
-
-            const attemptCheckResponse = await axios.get(
-                `${API_BASE_URL}/check-quiz-attempt?quiz_code=${code}&student_id=${currentUser.id}`
-            );
-            if (attemptCheckResponse.data.hasAttempted) {
-                setError(attemptCheckResponse.data.message);
-                navigate(`/student-dashboard/quiz/${code}`);
-                return;
-            }
-
-            const response = await axios.get(`${API_BASE_URL}/quizzes?code=${code}`);
-            setQuizData(response.data);
-            setShowQuizCodeInput(false);
-        } catch (err) {
-            setError(err.message || 'An error occurred while fetching the quiz.');
-            setQuizData(null);
-            if (!urlQuizCode) setShowQuizCodeInput(true);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleQuizCodeSubmit = async (e) => {
-        e.preventDefault();
-        if (quizCode) {
-            navigate(`/student-dashboard/take-quiz/${quizCode}`);
-        }
-    };
-
-    const handleAnswerChange = (questionIndex, optionIndex) => {
-        setSelectedAnswers((prevAnswers) => ({
-            ...prevAnswers,
-            [questionIndex]: optionIndex,
-        }));
-    };
-
-    const handleSubmitQuiz = async () => {
-        try {
-            const response = await axios.post(`${API_BASE_URL}/submit-quiz`, {
-                quiz_id: currentQuiz.id,
-                student_id: currentUser.id,
-                answers: answers
-            });
-            if (response.data.success) {
-                setSuccessMessage('Quiz submitted successfully!');
-                setTimeout(() => {
-                    setSuccessMessage('');
-                    setCurrentQuiz(null);
-                    setAnswers([]);
-                    setQuizCode('');
-                }, 3000);
-            }
-        } catch (error) {
-            console.error('Error submitting quiz:', error);
-            setErrorMessage('Failed to submit quiz. Please try again.');
-            setTimeout(() => setErrorMessage(''), 3000);
-        }
-    };
-
-    const renderQuiz = () => {
-        if (!quizData || !quizData.questions?.questions) {
-            return <p>No quiz data available.</p>;
-        }
-        return (
-            <div className="quiz-container">
-                <h2 className="quiz-title">{quizData.quiz_name}</h2>
-                <div className="question-list">
-                    {quizData.questions.questions.map((question, index) => (
-                        <div key={index} className="question-card">
-                            <span className="question-number">Question {index + 1}</span>
-                            <p className="question-text">{question.question_text}</p>
-                            <div className="options-container">
-                                {question.options.map((option, optionIndex) => (
-                                    <div key={optionIndex} className="option-item">
-                                        <label className={selectedAnswers[index] === optionIndex ? 'selected' : ''}>
-                                            <input
-                                                type="radio"
-                                                name={`question_${index}`}
-                                                value={optionIndex}
-                                                checked={selectedAnswers[index] === optionIndex}
-                                                onChange={() => handleAnswerChange(index, optionIndex)}
-                                            />
-                                            <span className="option-text">{option.text}</span>
-                                        </label>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    ))}
-                </div>
-                <button
-                    className="submit-quiz-btn"
-                    onClick={handleSubmitQuiz}
-                    disabled={loading || Object.keys(selectedAnswers).length === 0}
-                >
-                    {loading ? 'Submitting...' : 'Submit Quiz'}
-                </button>
-            </div>
-        );
-    };
-
-    return (
-        <div className="content">
-            <div className="take-quiz-content">
-                {loading ? (
-                    <div className="loading">Loading...</div>
-                ) : error ? (
-                    <div className="error-message">{error}</div>
-                ) : showQuizCodeInput ? (
-                    <>
-                        <h2>Enter Quiz Code</h2>
-                        <form onSubmit={handleQuizCodeSubmit}>
-                            <input
-                                type="text"
-                                className="quiz-code-input"
-                                value={quizCode}
-                                onChange={(e) => setQuizCode(e.target.value)}
-                                placeholder="Enter quiz code"
-                                required
-                            />
-                            <button type="submit" className="start-quiz-btn">
-                                Start Quiz
-                            </button>
-                        </form>
-                    </>
-                ) : (
-                    renderQuiz()
-                )}
-            </div>
         </div>
     );
 }
