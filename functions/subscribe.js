@@ -18,6 +18,7 @@ exports.handler = async (event) => {
 
     try {
         const { student_id, teacher_id } = JSON.parse(event.body);
+        console.log('Received subscription request:', { student_id, teacher_id });
 
         // Validate input
         if (!student_id || !teacher_id) {
@@ -27,6 +28,66 @@ exports.handler = async (event) => {
                 body: JSON.stringify({
                     success: false,
                     error: 'student_id and teacher_id are required'
+                })
+            };
+        }
+
+        // First check if the student exists
+        const { data: student, error: studentError } = await supabase
+            .from('student_login')
+            .select('id')
+            .eq('id', student_id)
+            .single();
+
+        if (studentError) {
+            console.error('Student check error:', studentError);
+            return {
+                statusCode: 500,
+                headers,
+                body: JSON.stringify({
+                    success: false,
+                    error: 'Failed to verify student'
+                })
+            };
+        }
+
+        if (!student) {
+            return {
+                statusCode: 404,
+                headers,
+                body: JSON.stringify({
+                    success: false,
+                    error: 'Student not found'
+                })
+            };
+        }
+
+        // Check if teacher exists
+        const { data: teacher, error: teacherError } = await supabase
+            .from('teacher_login')
+            .select('id')
+            .eq('id', teacher_id)
+            .single();
+
+        if (teacherError) {
+            console.error('Teacher check error:', teacherError);
+            return {
+                statusCode: 500,
+                headers,
+                body: JSON.stringify({
+                    success: false,
+                    error: 'Failed to verify teacher'
+                })
+            };
+        }
+
+        if (!teacher) {
+            return {
+                statusCode: 404,
+                headers,
+                body: JSON.stringify({
+                    success: false,
+                    error: 'Teacher not found'
                 })
             };
         }
@@ -46,7 +107,8 @@ exports.handler = async (event) => {
                 headers,
                 body: JSON.stringify({
                     success: false,
-                    error: 'Failed to check existing subscription'
+                    error: 'Failed to check existing subscription',
+                    details: checkError.message
                 })
             };
         }
@@ -68,7 +130,9 @@ exports.handler = async (event) => {
             .insert([{
                 student_id,
                 teacher_id,
-                subscribed_at: new Date().toISOString()
+                status: 'active',
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
             }])
             .select()
             .single();
@@ -80,7 +144,8 @@ exports.handler = async (event) => {
                 headers,
                 body: JSON.stringify({
                     success: false,
-                    error: 'Failed to subscribe to teacher'
+                    error: 'Failed to subscribe to teacher',
+                    details: createError.message
                 })
             };
         }
@@ -95,7 +160,9 @@ exports.handler = async (event) => {
                     id: subscription.id,
                     student_id: subscription.student_id,
                     teacher_id: subscription.teacher_id,
-                    subscribed_at: subscription.subscribed_at
+                    status: subscription.status,
+                    created_at: subscription.created_at,
+                    updated_at: subscription.updated_at
                 }
             })
         };
