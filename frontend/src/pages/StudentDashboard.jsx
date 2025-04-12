@@ -198,13 +198,11 @@ function HomeContent({ currentUser, setActiveTab }) {
     }, [currentUser]);
 
     const handleUpcomingQuizClick = (quizCode) => {
-        setActiveTab('take quiz');
         navigate(`/student-dashboard/take-quiz/${quizCode}`);
     };
 
     const handleAttemptedQuizClick = (quizCode) => {
-        setActiveTab('results');
-        navigate(`/student-dashboard/quiz/${quizCode}`);
+        navigate(`/student-dashboard/results/${quizCode}`);
     };
 
     if (loading) {
@@ -244,17 +242,26 @@ function HomeContent({ currentUser, setActiveTab }) {
                                 {upcomingQuizzes.map((quiz) => (
                                     <div
                                         key={quiz.quiz_id}
-                                        className="quiz-card clickable"
+                                        className="quiz-card"
                                         onClick={() => handleUpcomingQuizClick(quiz.quiz_code)}
                                     >
-                                        <div className="flex items-center justify-between">
-                                            <div>
-                                                <h3 className="text-lg font-medium text-gray-900">{quiz.quiz_name}</h3>
-                                                <p className="text-sm text-gray-500">Code: {quiz.quiz_code}</p>
+                                        <div className="quiz-card-content">
+                                            <div className="quiz-header">
+                                                <h3>{quiz.quiz_name}</h3>
+                                                <span className="quiz-code">{quiz.quiz_code}</span>
                                             </div>
-                                            <div className="text-right">
-                                                <p className="text-sm text-gray-500">Due: {new Date(quiz.due_date).toLocaleString()}</p>
-                                                <p className="text-sm text-gray-500">Teacher: {quiz.teacher_login?.username || 'Unknown'}</p>
+                                            <div className="quiz-details">
+                                                <div className="detail-item">
+                                                    <span className="label">Due Date</span>
+                                                    <span className="value">{new Date(quiz.due_date).toLocaleString()}</span>
+                                                </div>
+                                                <div className="detail-item">
+                                                    <span className="label">Teacher</span>
+                                                    <span className="value">{quiz.teacher_login?.username || 'Unknown'}</span>
+                                                </div>
+                                            </div>
+                                            <div className="quiz-actions">
+                                                <button className="take-quiz-btn">Take Quiz</button>
                                             </div>
                                         </div>
                                     </div>
@@ -272,17 +279,26 @@ function HomeContent({ currentUser, setActiveTab }) {
                                 {attemptedQuizzes.map((quiz) => (
                                     <div
                                         key={quiz.quiz_id}
-                                        className="quiz-card clickable"
+                                        className="quiz-card"
                                         onClick={() => handleAttemptedQuizClick(quiz.quiz_code)}
                                     >
-                                        <div className="flex items-center justify-between">
-                                            <div>
-                                                <h3 className="text-lg font-medium text-gray-900">{quiz.quiz_name}</h3>
-                                                <p className="text-sm text-gray-500">Code: {quiz.quiz_code}</p>
+                                        <div className="quiz-card-content">
+                                            <div className="quiz-header">
+                                                <h3>{quiz.quiz_name}</h3>
+                                                <span className="quiz-code">{quiz.quiz_code}</span>
                                             </div>
-                                            <div className="text-right">
-                                                <p className="text-sm text-gray-500">Score: {quiz.score}/{quiz.total_questions}</p>
-                                                <p className="text-sm text-gray-500">Teacher: {quiz.teacher_login?.username || 'Unknown'}</p>
+                                            <div className="quiz-details">
+                                                <div className="detail-item">
+                                                    <span className="label">Score</span>
+                                                    <span className="value">{quiz.score}/{quiz.total_questions}</span>
+                                                </div>
+                                                <div className="detail-item">
+                                                    <span className="label">Teacher</span>
+                                                    <span className="value">{quiz.teacher_login?.username || 'Unknown'}</span>
+                                                </div>
+                                            </div>
+                                            <div className="quiz-actions">
+                                                <button className="view-results-btn">View Results</button>
                                             </div>
                                         </div>
                                     </div>

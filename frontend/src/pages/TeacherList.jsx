@@ -14,6 +14,7 @@ function TeacherList({ studentId }) {
     const [message, setMessage] = useState('');
     const [showSuccess, setShowSuccess] = useState(false);
     const [selectedTeacher, setSelectedTeacher] = useState(null);
+    const [isSubscribing, setIsSubscribing] = useState(false);
 
     useEffect(() => {
         if (studentId) {
@@ -60,6 +61,7 @@ function TeacherList({ studentId }) {
             setLoading(true);
             setError('');
             setMessage('');
+            setIsSubscribing(true);
 
             const response = await axios.post(`${API_BASE_URL}/subscribe`, {
                 student_id: studentId,
@@ -79,6 +81,7 @@ function TeacherList({ studentId }) {
             setError(err.response?.data?.error || 'Failed to subscribe to teacher');
         } finally {
             setLoading(false);
+            setIsSubscribing(false);
         }
     };
 
@@ -132,31 +135,24 @@ function TeacherList({ studentId }) {
                 </div>
             )}
 
-            <h3>Your Teachers</h3>
-            {subscribedTeachers.length === 0 ? (
-                <div className="no-teachers">You haven't subscribed to any teachers yet.</div>
-            ) : (
-                <div className="teacher-grid">
-                    {subscribedTeachers.map((teacher) => (
-                        <div key={teacher.id} className="teacher-card">
-                            <div className="teacher-info">
-                                <h4>{teacher.username}</h4>
-                                <p>{teacher.email}</p>
-                            </div>
-                            <div className="teacher-actions">
-                                <span className="status subscribed">Subscribed</span>
-                                <button
-                                    className="subscribed-btn"
-                                    onClick={() => handleUnsubscribe(teacher.id)}
-                                    disabled={loading}
-                                >
-                                    Unsubscribe
-                                </button>
-                            </div>
+            <h2>Your Teachers</h2>
+            <div className="teachers-grid">
+                {teachers.map((teacher) => (
+                    <div key={teacher.id} className="teacher-card">
+                        <div className="teacher-info">
+                            <h3>{teacher.username}</h3>
+                            <p>{teacher.email}</p>
                         </div>
-                    ))}
-                </div>
-            )}
+                        <button 
+                            className="subscribe-btn"
+                            onClick={() => handleSubscribe(teacher.id)}
+                            disabled={isSubscribing}
+                        >
+                            {isSubscribing ? 'Subscribing...' : 'Subscribe'}
+                        </button>
+                    </div>
+                ))}
+            </div>
 
             <div className="unsubscribed-section">
                 <button
@@ -203,3 +199,105 @@ function TeacherList({ studentId }) {
 }
 
 export default TeacherList;
+
+<style jsx>{`
+    .teacher-list {
+        width: 100%;
+        max-width: 1200px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+    }
+
+    .teacher-list h2 {
+        font-size: 1.8rem;
+        color: #2d3748;
+        margin-bottom: 1.5rem;
+        text-align: center;
+    }
+
+    .teachers-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 1.5rem;
+        width: 100%;
+    }
+
+    .teacher-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        border: 1px solid #e2e8f0;
+    }
+
+    .teacher-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 12px rgba(0, 0, 0, 0.15);
+        border-color: #667eea;
+    }
+
+    .teacher-info {
+        margin-bottom: 1rem;
+    }
+
+    .teacher-info h3 {
+        font-size: 1.25rem;
+        color: #2d3748;
+        margin-bottom: 0.5rem;
+    }
+
+    .teacher-info p {
+        color: #4a5568;
+        font-size: 0.9rem;
+    }
+
+    .subscribe-btn {
+        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        width: 100%;
+    }
+
+    .subscribe-btn:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+    }
+
+    .subscribe-btn:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+    }
+
+    .success-message {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background-color: #48bb78;
+        color: white;
+        padding: 1rem 2rem;
+        border-radius: 8px;
+        font-size: 1rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        animation: slideIn 0.3s ease-out;
+    }
+
+    @keyframes slideIn {
+        from {
+            transform: translateY(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+`}</style>
