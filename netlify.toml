@@ -8,6 +8,10 @@ directory = "functions"
 node_bundler = "esbuild"
 included_files = ["supabase.js"]
 
+[functions.environment]
+SUPABASE_URL = "https://hntrpejpiboxnlbzrbbc.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhudHJwZWpwaWJveG5sYnpyYmJjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDMyNDA4NTMsImV4cCI6MjA1ODgxNjg1M30.J4R67CjTWG6WaTtAtuHNTmDFKGaGWvA4R1gWRBBmMDc"
+
 [[redirects]]
 from = "/api/*"
 to = "/.netlify/functions/:splat"
