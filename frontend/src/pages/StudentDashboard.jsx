@@ -9,7 +9,7 @@ import './StudentDashboard.css';
 import './TakeQuiz.css';
 import TeacherList from './TeacherList';
 
-const API_BASE_URL = 'http://localhost:3000/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 function StudentDashboard() {
     const [activeTab, setActiveTab] = useState('home');
