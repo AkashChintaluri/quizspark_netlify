@@ -49,9 +49,10 @@ exports.handler = async (event) => {
         const averageScore = totalQuizzes > 0 ? (totalScore / totalQuestions * 100).toFixed(2) : 0;
 
         return createSuccessResponse({
-            total_quizzes: totalQuizzes,
-            total_teachers: totalTeachers,
-            average_score: parseFloat(averageScore)
+            total_attempts: totalQuizzes,
+            average_score: parseFloat(averageScore),
+            completed_quizzes: totalQuizzes,
+            total_teachers: totalTeachers
         });
 
     } catch (error) {
