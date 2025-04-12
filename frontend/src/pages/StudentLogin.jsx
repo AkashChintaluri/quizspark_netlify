@@ -53,7 +53,7 @@ function StudentLogin() {
                 const userData = { 
                     id: formattedId, 
                     username, 
-                    role: userType // Changed from userType to role to match App.jsx
+                    role: 'student'
                 };
                 localStorage.setItem('user', JSON.stringify(userData));
                 setShowPopup(true);
