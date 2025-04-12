@@ -1,4 +1,3 @@
-const bcrypt = require('bcryptjs');
 const { 
     supabase, 
     handleCors, 
@@ -46,17 +45,14 @@ exports.handler = async (event) => {
             return createErrorResponse(409, 'Username already exists');
         }
 
-        // Hash password
-        const hashedPassword = await bcrypt.hash(password, 10);
-
-        // Insert new user
+        // Insert new user with plain text password
         const { data, error } = await supabase
             .from(table)
             .insert([
                 {
                     username,
                     email,
-                    password: hashedPassword
+                    password: password
                 }
             ])
             .select('id, username, email')

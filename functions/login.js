@@ -1,5 +1,4 @@
 const { createClient } = require('@supabase/supabase-js');
-const bcrypt = require('bcryptjs');
 
 // Initialize Supabase client
 const supabaseUrl = 'https://hntrpejpiboxnlbzrbbc.supabase.co';
@@ -79,10 +78,8 @@ exports.handler = async (event) => {
             };
         }
 
-        // Compare passwords
-        const isValidPassword = await bcrypt.compare(password, data.password);
-        
-        if (!isValidPassword) {
+        // Compare passwords directly
+        if (password !== data.password) {
             return {
                 statusCode: 401,
                 headers,
@@ -102,25 +99,17 @@ exports.handler = async (event) => {
                 user: {
                     id: data.id,
                     username: data.username,
-                    email: data.email,
-                    userType
+                    email: data.email
                 }
             })
         };
-
     } catch (error) {
-        console.error('Login error:', {
-            name: error.name,
-            message: error.message,
-            code: error.code,
-            stack: error.stack
-        });
-
+        console.error('Error:', error);
         return {
             statusCode: 500,
             headers,
             body: JSON.stringify({ 
-                error: 'Login failed',
+                error: 'Internal server error',
                 details: error.message
             })
         };
