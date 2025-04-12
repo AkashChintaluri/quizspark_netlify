@@ -95,7 +95,7 @@ exports.handler = async (event) => {
         // Check if subscription already exists
         const { data: existingSub, error: checkError } = await supabase
             .from('subscriptions')
-            .select('id')
+            .select('student_id, teacher_id')
             .eq('student_id', student_id)
             .eq('teacher_id', teacher_id)
             .single();
@@ -134,7 +134,7 @@ exports.handler = async (event) => {
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
             }])
-            .select()
+            .select('student_id, teacher_id, status, created_at, updated_at')
             .single();
 
         if (createError) {
@@ -157,7 +157,6 @@ exports.handler = async (event) => {
                 success: true,
                 message: 'Successfully subscribed to teacher',
                 subscription: {
-                    id: subscription.id,
                     student_id: subscription.student_id,
                     teacher_id: subscription.teacher_id,
                     status: subscription.status,
