@@ -27,11 +27,11 @@ exports.handler = async (event) => {
                 completed_at,
                 quizzes (
                     id,
-                    title,
-                    teacher_id
+                    quiz_name,
+                    created_by
                 )
             `)
-            .eq('student_id', student_id)
+            .eq('user_id', student_id)
             .order('completed_at', { ascending: false });
 
         if (attemptError) {
@@ -45,13 +45,13 @@ exports.handler = async (event) => {
         const averageScore = totalAttempts > 0 ? totalScore / totalAttempts : 0;
 
         // Get unique teachers
-        const teacherIds = new Set(attempts.map(a => a.quizzes.teacher_id));
+        const teacherIds = new Set(attempts.map(a => a.quizzes.created_by));
         const uniqueTeachers = teacherIds.size;
 
         // Get recent performance trend (last 5 attempts)
         const recentAttempts = attempts.slice(0, 5);
         const performanceTrend = recentAttempts.map(attempt => ({
-            quiz_title: attempt.quizzes.title,
+            quiz_title: attempt.quizzes.quiz_name,
             score: attempt.score,
             completed_at: attempt.completed_at
         }));
@@ -79,12 +79,12 @@ exports.handler = async (event) => {
             score_distribution: scoreDistribution,
             performance_trend: performanceTrend,
             best_performance: bestAttempt ? {
-                quiz_title: bestAttempt.quizzes.title,
+                quiz_title: bestAttempt.quizzes.quiz_name,
                 score: bestAttempt.score,
                 completed_at: bestAttempt.completed_at
             } : null,
             worst_performance: worstAttempt ? {
-                quiz_title: worstAttempt.quizzes.title,
+                quiz_title: worstAttempt.quizzes.quiz_name,
                 score: worstAttempt.score,
                 completed_at: worstAttempt.completed_at
             } : null

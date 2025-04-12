@@ -47,7 +47,7 @@ exports.handler = async (event) => {
                     email
                 )
             `)
-            .in('teacher_id', teacherIds)
+            .in('created_by', teacherIds)
             .gt('due_date', now)
             .order('due_date', { ascending: true });
 
@@ -60,7 +60,7 @@ exports.handler = async (event) => {
         const { data: attempts, error: attemptError } = await supabase
             .from('quiz_attempts')
             .select('quiz_id')
-            .eq('student_id', student_id)
+            .eq('user_id', student_id)
             .in('quiz_id', quizzes.map(q => q.id));
 
         if (attemptError) {

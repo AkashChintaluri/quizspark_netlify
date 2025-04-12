@@ -38,7 +38,7 @@ exports.handler = async (event) => {
                     )
                 )
             `)
-            .eq('student_id', student_id)
+            .eq('user_id', student_id)
             .order('completed_at', { ascending: false });
 
         if (error) {
