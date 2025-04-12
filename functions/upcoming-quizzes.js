@@ -37,18 +37,17 @@ exports.handler = async (event) => {
         const { data: quizzes, error: quizError } = await supabase
             .from('quizzes')
             .select(`
-                quiz_id,
+                id,
                 quiz_name,
                 quiz_code,
                 created_by,
                 questions,
                 due_date,
                 created_at,
-                teacher:teacher_login (
+                teacher_login (
                     id,
                     username,
-                    email,
-                    password
+                    email
                 )
             `)
             .in('created_by', teacherIds)
@@ -66,7 +65,7 @@ exports.handler = async (event) => {
             .select('quiz_id')
             .eq('user_id', student_id)
             .eq('is_completed', true)
-            .in('quiz_id', quizzes.map(q => q.quiz_id));
+            .in('quiz_id', quizzes.map(q => q.id));
 
         if (attemptError) {
             console.error('Attempts fetch error:', attemptError);
@@ -77,17 +76,17 @@ exports.handler = async (event) => {
 
         return createSuccessResponse({
             quizzes: quizzes.map(quiz => ({
-                id: quiz.quiz_id,
-                title: quiz.quiz_name,
-                code: quiz.quiz_code,
+                quiz_id: quiz.id,
+                quiz_name: quiz.quiz_name,
+                quiz_code: quiz.quiz_code,
                 due_date: quiz.due_date,
                 created_at: quiz.created_at,
-                teacher: {
-                    id: quiz.teacher.id,
-                    name: quiz.teacher.username,
-                    email: quiz.teacher.email
+                teacher_login: {
+                    id: quiz.teacher_login.id,
+                    username: quiz.teacher_login.username,
+                    email: quiz.teacher_login.email
                 },
-                is_attempted: attemptedQuizIds.has(quiz.quiz_id)
+                is_attempted: attemptedQuizIds.has(quiz.id)
             }))
         });
 
