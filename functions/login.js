@@ -3,29 +3,43 @@ const bcrypt = require('bcryptjs');
 
 // Parse database URL and ensure SSL is properly configured
 const getDbConfig = () => {
-    const connectionString = process.env.DATABASE_URL;
-    return {
-        connectionString,
-        ssl: {
-            rejectUnauthorized: false,
-            sslmode: 'require'
-        },
-        // Add connection timeout and retry settings
-        connectionTimeoutMillis: 5000,
-        query_timeout: 10000,
-        statement_timeout: 10000,
-        max: 20,
-        idleTimeoutMillis: 30000,
-        connectionRetryAttempts: 3
-    };
+    try {
+        const connectionString = process.env.DATABASE_URL;
+        console.log('Database URL format check:', {
+            hasProtocol: connectionString.startsWith('postgresql://'),
+            includesHost: connectionString.includes('@'),
+            includesPort: connectionString.includes(':5432'),
+            includesSSL: connectionString.includes('sslmode=require')
+        });
+
+        return {
+            connectionString,
+            ssl: {
+                rejectUnauthorized: false
+            },
+            // Add shorter timeouts for faster feedback
+            connectionTimeoutMillis: 10000,
+            query_timeout: 10000
+        };
+    } catch (error) {
+        console.error('Error in getDbConfig:', error);
+        throw error;
+    }
 };
 
-const pool = new Pool(getDbConfig());
+// Create pool with error logging
+let pool;
+try {
+    pool = new Pool(getDbConfig());
+    console.log('Pool created successfully');
+} catch (error) {
+    console.error('Error creating pool:', error);
+    throw error;
+}
 
 // Add error handler for pool
 pool.on('error', (err) => {
-    console.error('Unexpected error on idle client', err);
-    process.exit(-1);
+    console.error('Unexpected error on idle client:', err);
 });
 
 exports.handler = async (event) => {
@@ -70,20 +84,9 @@ exports.handler = async (event) => {
             };
         }
 
-        // Test database connection before proceeding
-        try {
-            client = await pool.connect();
-        } catch (dbError) {
-            console.error('Database connection error:', dbError);
-            return {
-                statusCode: 500,
-                headers,
-                body: JSON.stringify({
-                    error: 'Database connection failed',
-                    details: dbError.message
-                })
-            };
-        }
+        console.log('Attempting database connection...');
+        client = await pool.connect();
+        console.log('Database connection successful');
 
         // Query user table
         const table = `${userType}_login`;
@@ -93,7 +96,9 @@ exports.handler = async (event) => {
             WHERE username = $1
         `;
         
+        console.log('Executing query for user:', username);
         const result = await client.query(query, [username]);
+        console.log('Query executed successfully');
 
         if (result.rows.length === 0) {
             return {
@@ -139,18 +144,19 @@ exports.handler = async (event) => {
 
     } catch (error) {
         console.error('Login error:', {
+            name: error.name,
             message: error.message,
             code: error.code,
-            stack: error.stack,
-            details: error.detail
+            stack: error.stack
         });
 
         return {
             statusCode: 500,
             headers,
             body: JSON.stringify({ 
-                error: 'Internal server error',
-                details: error.message
+                error: 'Database connection failed',
+                details: error.message,
+                code: error.code
             })
         };
     } finally {
