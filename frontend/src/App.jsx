@@ -49,14 +49,7 @@ function App() {
             <Router basename="/">
                 <div className="App">
                     <Routes>
-                        <Route 
-                            path="/" 
-                            element={
-                                user ? 
-                                    <Navigate to={`/${user.role}-dashboard`} replace /> : 
-                                    <Layout><Home /></Layout>
-                            } 
-                        />
+                        <Route path="/" element={<Layout><Home /></Layout>} />
                         <Route 
                             path="/student-login" 
                             element={
