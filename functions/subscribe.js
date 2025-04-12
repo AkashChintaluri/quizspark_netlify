@@ -46,7 +46,8 @@ exports.handler = async (event) => {
                 headers,
                 body: JSON.stringify({
                     success: false,
-                    error: 'Failed to verify student'
+                    error: 'Failed to verify student',
+                    details: studentError.message
                 })
             };
         }
@@ -76,7 +77,8 @@ exports.handler = async (event) => {
                 headers,
                 body: JSON.stringify({
                     success: false,
-                    error: 'Failed to verify teacher'
+                    error: 'Failed to verify teacher',
+                    details: teacherError.message
                 })
             };
         }
@@ -95,12 +97,12 @@ exports.handler = async (event) => {
         // Check if subscription already exists
         const { data: existingSub, error: checkError } = await supabase
             .from('subscriptions')
-            .select('student_id, teacher_id')
+            .select('*')
             .eq('student_id', student_id)
             .eq('teacher_id', teacher_id)
-            .single();
+            .maybeSingle();
 
-        if (checkError && checkError.code !== 'PGRST116') {
+        if (checkError) {
             console.error('Subscription check error:', checkError);
             return {
                 statusCode: 500,
@@ -125,16 +127,18 @@ exports.handler = async (event) => {
         }
 
         // Create subscription
+        const subscriptionData = {
+            student_id,
+            teacher_id,
+            subscribed_at: new Date().toISOString()
+        };
+
+        console.log('Attempting to create subscription:', subscriptionData);
+
         const { data: subscription, error: createError } = await supabase
             .from('subscriptions')
-            .insert([{
-                student_id,
-                teacher_id,
-                status: 'active',
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-            }])
-            .select('student_id, teacher_id, status, created_at, updated_at')
+            .insert([subscriptionData])
+            .select('*')
             .single();
 
         if (createError) {
@@ -150,6 +154,8 @@ exports.handler = async (event) => {
             };
         }
 
+        console.log('Successfully created subscription:', subscription);
+
         return {
             statusCode: 200,
             headers,
@@ -159,9 +165,7 @@ exports.handler = async (event) => {
                 subscription: {
                     student_id: subscription.student_id,
                     teacher_id: subscription.teacher_id,
-                    status: subscription.status,
-                    created_at: subscription.created_at,
-                    updated_at: subscription.updated_at
+                    subscribed_at: subscription.subscribed_at
                 }
             })
         };
