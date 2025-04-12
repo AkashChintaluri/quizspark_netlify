@@ -8,7 +8,7 @@ function TeacherList({ studentId }) {
     const [teachers, setTeachers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    const [showDropdown, setShowDropdown] = useState(false);
+    const [showMoreTeachers, setShowMoreTeachers] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [subscriptions, setSubscriptions] = useState(new Set());
     const [message, setMessage] = useState('');
@@ -129,6 +129,7 @@ function TeacherList({ studentId }) {
                     <div className="teachers-grid">
                         {subscribedTeachers.map((teacher) => (
                             <div key={teacher.id} className="teacher-card">
+                                <img src={teacher.image || 'https://via.placeholder.com/150'} alt={teacher.username} className="teacher-image" />
                                 <div className="teacher-info">
                                     <h4>{teacher.username}</h4>
                                     <p>{teacher.email}</p>
@@ -148,15 +149,15 @@ function TeacherList({ studentId }) {
 
             <div className="unsubscribed-section">
                 <button
-                    className="dropdown-toggle"
-                    onClick={() => setShowDropdown(!showDropdown)}
+                    className="find-more-btn"
+                    onClick={() => setShowMoreTeachers(!showMoreTeachers)}
                     disabled={loading}
                 >
-                    {showDropdown ? 'Hide Available Teachers' : 'Find More Teachers'}
+                    {showMoreTeachers ? 'Hide More Teachers' : 'Find More Teachers'}
                 </button>
 
-                {showDropdown && (
-                    <div className="dropdown-menu">
+                {showMoreTeachers && (
+                    <div className="more-teachers-section">
                         <input
                             type="text"
                             className="search-input"
@@ -168,11 +169,12 @@ function TeacherList({ studentId }) {
                         {filteredUnsubscribedTeachers.length === 0 ? (
                             <div className="no-teachers">No teachers found.</div>
                         ) : (
-                            <ul className="teacher-dropdown-list">
+                            <div className="teachers-grid">
                                 {filteredUnsubscribedTeachers.map((teacher) => (
-                                    <li key={teacher.id} className="dropdown-item">
+                                    <div key={teacher.id} className="teacher-card">
+                                        <img src={teacher.image || 'https://via.placeholder.com/150'} alt={teacher.username} className="teacher-image" />
                                         <div className="teacher-info">
-                                            <span>{teacher.username}</span>
+                                            <h4>{teacher.username}</h4>
                                             <p>{teacher.email}</p>
                                         </div>
                                         <button
@@ -182,9 +184,9 @@ function TeacherList({ studentId }) {
                                         >
                                             {isSubscribing ? 'Subscribing...' : 'Subscribe'}
                                         </button>
-                                    </li>
+                                    </div>
                                 ))}
-                            </ul>
+                            </div>
                         )}
                     </div>
                 )}
