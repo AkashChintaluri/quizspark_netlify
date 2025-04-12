@@ -1,4 +1,5 @@
 const { createClient } = require('@supabase/supabase-js');
+const bcrypt = require('bcryptjs');
 
 // Initialize Supabase client
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -58,7 +59,7 @@ exports.handler = async (event) => {
             });
         }
 
-        // Check if student exists and verify current password
+        // Check if student exists
         const { data: student, error: fetchError } = await supabase
             .from('student_login')
             .select('id, password')
@@ -82,7 +83,8 @@ exports.handler = async (event) => {
         }
 
         // Verify current password
-        if (student.password !== currentPassword) {
+        const isPasswordValid = await bcrypt.compare(currentPassword, student.password);
+        if (!isPasswordValid) {
             console.log('Current password is incorrect');
             return sendResponse(401, {
                 success: false,
@@ -90,10 +92,14 @@ exports.handler = async (event) => {
             });
         }
 
+        // Hash the new password
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(newPassword, salt);
+
         // Update password
         const { error: updateError } = await supabase
             .from('student_login')
-            .update({ password: newPassword })
+            .update({ password: hashedPassword })
             .eq('id', student_id);
 
         if (updateError) {
