@@ -162,75 +162,26 @@ function StudentDashboard() {
         return <div className="loading-screen">Loading dashboard...</div>;
     }
 
-    if (quizCode) {
-        return (
-            <div className="take-quiz">
-                {loading ? (
-                    <div className="loading">Loading...</div>
-                ) : error ? (
-                    <div className="error-message">{error}</div>
-                ) : currentQuiz ? (
-                    <div className="quiz-container">
-                        <h2 className="quiz-title">{currentQuiz.quiz_name}</h2>
-                        <div className="question-list">
-                            {currentQuiz.questions.questions.map((question, index) => (
-                                <div key={index} className="question-card">
-                                    <span className="question-number">Question {index + 1}</span>
-                                    <p className="question-text">{question.question_text}</p>
-                                    <div className="options-container">
-                                        {question.options.map((option, optionIndex) => (
-                                            <div key={optionIndex} className="option-item">
-                                                <label className={answers[index] === optionIndex ? 'selected' : ''}>
-                                                    <input
-                                                        type="radio"
-                                                        name={`question_${index}`}
-                                                        value={optionIndex}
-                                                        checked={answers[index] === optionIndex}
-                                                        onChange={() => handleAnswerChange(index, optionIndex)}
-                                                    />
-                                                    <span className="option-text">{option.text}</span>
-                                                </label>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                        <button
-                            className="submit-quiz-btn"
-                            onClick={handleSubmitQuiz}
-                            disabled={loading || Object.keys(answers).length === 0}
-                        >
-                            {loading ? 'Submitting...' : 'Submit Quiz'}
-                        </button>
-                    </div>
-                ) : null}
-            </div>
-        );
+    if (!currentUser) {
+        return <div className="auth-message">Session expired. Redirecting to login...</div>;
     }
 
     return (
         <div className="student-dashboard">
-            {currentUser ? (
-                <>
-                    <Sidebar 
-                        activeTab={activeTab} 
-                        setActiveTab={setActiveTab} 
-                        currentUser={currentUser} 
-                        handleTabChange={handleTabChange} 
-                        navigate={navigate} 
-                    />
-                    <Content 
-                        activeTab={activeTab} 
-                        setActiveTab={setActiveTab} 
-                        currentUser={currentUser} 
-                        location={location} 
-                        setCurrentUser={setCurrentUser}
-                    />
-                </>
-            ) : (
-                <div className="auth-message">Session expired. Redirecting to login...</div>
-            )}
+            <Sidebar 
+                activeTab={activeTab} 
+                setActiveTab={setActiveTab} 
+                currentUser={currentUser} 
+                handleTabChange={handleTabChange} 
+                navigate={navigate} 
+            />
+            <Content 
+                activeTab={activeTab} 
+                setActiveTab={setActiveTab} 
+                currentUser={currentUser} 
+                location={location} 
+                setCurrentUser={setCurrentUser}
+            />
         </div>
     );
 }
@@ -265,6 +216,8 @@ function Sidebar({ activeTab, currentUser, handleTabChange }) {
 function Content({ activeTab, setActiveTab, currentUser, location, setCurrentUser }) {
     const { pathname } = location;
     const { quizCode } = useParams();
+
+    console.log('Content rendering with:', { pathname, quizCode, activeTab });
 
     if (pathname.includes('/take-quiz/')) {
         return <TakeQuizContent currentUser={currentUser} />;
@@ -477,25 +430,35 @@ function TakeQuizContent({ currentUser }) {
     const navigate = useNavigate();
     const { quizCode } = useParams();
 
+    console.log('TakeQuizContent rendering with quizCode:', quizCode);
+
     useEffect(() => {
         const fetchQuiz = async () => {
-            if (!quizCode) return;
+            if (!quizCode) {
+                console.log('No quiz code provided');
+                return;
+            }
             
             try {
                 setLoading(true);
                 setError('');
+                console.log('Fetching quiz with code:', quizCode);
                 const response = await axios.get(`${API_BASE_URL}/quiz/${quizCode}`);
+                console.log('Quiz response:', response.data);
                 
                 if (response.data) {
-                    setQuizData({
+                    const transformedQuiz = {
                         ...response.data,
                         questions: response.data.questions?.questions || [],
                         teacher_login: {
                             id: response.data.created_by,
                             username: response.data.teacher_login?.username || 'Unknown Teacher'
                         }
-                    });
+                    };
+                    console.log('Transformed quiz data:', transformedQuiz);
+                    setQuizData(transformedQuiz);
                 } else {
+                    console.log('No quiz data received');
                     setError('Quiz not found');
                 }
             } catch (err) {
