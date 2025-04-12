@@ -249,10 +249,16 @@ function HomeContent({ currentUser, setActiveTab }) {
                                         className="quiz-card clickable"
                                         onClick={() => handleUpcomingQuizClick(quiz.quiz_code)}
                                     >
-                                        <h4>{quiz.quiz_name}</h4>
-                                        <p>Code: {quiz.quiz_code}</p>
-                                        <p>Teacher: {quiz.teacher_name}</p>
-                                        <p>Due Date: {new Date(quiz.due_date).toLocaleDateString()}</p>
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <h3 className="text-lg font-medium text-gray-900">{quiz.quiz_name}</h3>
+                                                <p className="text-sm text-gray-500">Code: {quiz.quiz_code}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-sm text-gray-500">Due: {new Date(quiz.due_date).toLocaleString()}</p>
+                                                <p className="text-sm text-gray-500">Teacher: {quiz.teacher_login.username}</p>
+                                            </div>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
@@ -271,10 +277,16 @@ function HomeContent({ currentUser, setActiveTab }) {
                                         className="quiz-card clickable"
                                         onClick={() => handleAttemptedQuizClick(quiz.quiz_code)}
                                     >
-                                        <h4>{quiz.quiz_name}</h4>
-                                        <p>Code: {quiz.quiz_code}</p>
-                                        <p>Teacher: {quiz.teacher_name}</p>
-                                        <p>Attempt Date: {new Date(quiz.attempt_date).toLocaleDateString()}</p>
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <h3 className="text-lg font-medium text-gray-900">{quiz.quiz_name}</h3>
+                                                <p className="text-sm text-gray-500">Code: {quiz.quiz_code}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-sm text-gray-500">Score: {quiz.score}/{quiz.total_questions}</p>
+                                                <p className="text-sm text-gray-500">Teacher: {quiz.teacher_login.username}</p>
+                                            </div>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
@@ -546,7 +558,16 @@ function ResultsContent({ currentUser, setActiveTab }) {
         return (
             <div className="quiz-result">
                 <h3>{quizResult.quizName}</h3>
-                <p className="final-score">Final Score: {quizResult.score} / {quizResult.totalQuestions}</p>
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h3 className="text-lg font-medium text-gray-900">{quizResult.quizName}</h3>
+                        <p className="text-sm text-gray-500">Code: {quizResult.quiz_code}</p>
+                    </div>
+                    <div className="text-right">
+                        <p className="text-sm text-gray-500">Score: {quizResult.score}/{quizResult.totalQuestions}</p>
+                        <p className="text-sm text-gray-500">Teacher: {quizResult.teacher_login.username}</p>
+                    </div>
+                </div>
                 {quizResult.questions.map((question, questionIndex) => (
                     <div key={questionIndex} className="question-card">
                         <span className="question-number">Question {questionIndex + 1}</span>
@@ -705,6 +726,7 @@ function LeaderboardContent({ currentUser }) {
                                 <div className="quiz-info-card">
                                     <h3>{leaderboardData.quiz_name}</h3>
                                     <p>Total Participants: {leaderboardData.rankings.length}</p>
+                                    <p>Teacher: {leaderboardData.teacher_login.username}</p>
                                 </div>
 
                                 <div className="leaderboard-search-box">

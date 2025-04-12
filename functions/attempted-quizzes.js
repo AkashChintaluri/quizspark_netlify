@@ -24,16 +24,16 @@ exports.handler = async (event) => {
             .select(`
                 id,
                 score,
+                total_questions,
                 completed_at,
                 quizzes (
                     id,
-                    title,
-                    description,
+                    quiz_name,
+                    quiz_code,
+                    created_by,
                     due_date,
-                    created_at,
-                    teacher_id,
-                    teachers (
-                        name,
+                    teacher_login (
+                        username,
                         email
                     )
                 )
@@ -50,14 +50,17 @@ exports.handler = async (event) => {
             quizzes: attempts.map(attempt => ({
                 attempt_id: attempt.id,
                 score: attempt.score,
+                total_questions: attempt.total_questions,
                 completed_at: attempt.completed_at,
                 quiz: {
                     id: attempt.quizzes.id,
-                    title: attempt.quizzes.title,
-                    description: attempt.quizzes.description,
+                    title: attempt.quizzes.quiz_name,
+                    code: attempt.quizzes.quiz_code,
                     due_date: attempt.quizzes.due_date,
-                    created_at: attempt.quizzes.created_at,
-                    teacher: attempt.quizzes.teachers
+                    teacher: {
+                        name: attempt.quizzes.teacher_login.username,
+                        email: attempt.quizzes.teacher_login.email
+                    }
                 }
             }))
         });

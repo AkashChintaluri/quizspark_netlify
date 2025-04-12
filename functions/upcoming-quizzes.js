@@ -38,13 +38,12 @@ exports.handler = async (event) => {
             .from('quizzes')
             .select(`
                 id,
-                title,
-                description,
+                quiz_name,
+                quiz_code,
+                created_by,
                 due_date,
-                created_at,
-                teacher_id,
-                teachers (
-                    name,
+                teacher_login (
+                    username,
                     email
                 )
             `)
@@ -74,11 +73,14 @@ exports.handler = async (event) => {
         return createSuccessResponse({
             quizzes: quizzes.map(quiz => ({
                 id: quiz.id,
-                title: quiz.title,
-                description: quiz.description,
+                title: quiz.quiz_name,
+                code: quiz.quiz_code,
                 due_date: quiz.due_date,
-                created_at: quiz.created_at,
-                teacher: quiz.teachers,
+                created_at: quiz.created_by,
+                teacher: {
+                    name: quiz.teacher_login.username,
+                    email: quiz.teacher_login.email
+                },
                 is_attempted: attemptedQuizIds.has(quiz.id)
             }))
         });
