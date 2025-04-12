@@ -24,15 +24,28 @@ exports.handler = async (event) => {
             .select(`
                 id,
                 score,
-                completed_at,
-                quizzes (
-                    id,
+                total_questions,
+                time_taken,
+                answers,
+                is_completed,
+                quiz:quizzes (
+                    quiz_id,
                     quiz_name,
-                    created_by
+                    created_by,
+                    questions,
+                    due_date,
+                    created_at,
+                    teacher:teacher_login (
+                        id,
+                        username,
+                        email,
+                        password
+                    )
                 )
             `)
             .eq('user_id', student_id)
-            .order('completed_at', { ascending: false });
+            .eq('is_completed', true)
+            .order('time_taken', { ascending: false });
 
         if (attemptError) {
             console.error('Attempts fetch error:', attemptError);
@@ -45,15 +58,15 @@ exports.handler = async (event) => {
         const averageScore = totalAttempts > 0 ? totalScore / totalAttempts : 0;
 
         // Get unique teachers
-        const teacherIds = new Set(attempts.map(a => a.quizzes.created_by));
+        const teacherIds = new Set(attempts.map(a => a.quiz.created_by));
         const uniqueTeachers = teacherIds.size;
 
         // Get recent performance trend (last 5 attempts)
         const recentAttempts = attempts.slice(0, 5);
         const performanceTrend = recentAttempts.map(attempt => ({
-            quiz_title: attempt.quizzes.quiz_name,
+            quiz_title: attempt.quiz.quiz_name,
             score: attempt.score,
-            completed_at: attempt.completed_at
+            completed_at: attempt.time_taken
         }));
 
         // Calculate score distribution
@@ -79,14 +92,14 @@ exports.handler = async (event) => {
             score_distribution: scoreDistribution,
             performance_trend: performanceTrend,
             best_performance: bestAttempt ? {
-                quiz_title: bestAttempt.quizzes.quiz_name,
+                quiz_title: bestAttempt.quiz.quiz_name,
                 score: bestAttempt.score,
-                completed_at: bestAttempt.completed_at
+                completed_at: bestAttempt.time_taken
             } : null,
             worst_performance: worstAttempt ? {
-                quiz_title: worstAttempt.quizzes.quiz_name,
+                quiz_title: worstAttempt.quiz.quiz_name,
                 score: worstAttempt.score,
-                completed_at: worstAttempt.completed_at
+                completed_at: worstAttempt.time_taken
             } : null
         });
 

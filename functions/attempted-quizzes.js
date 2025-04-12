@@ -25,21 +25,27 @@ exports.handler = async (event) => {
                 id,
                 score,
                 total_questions,
-                completed_at,
-                quizzes (
-                    id,
+                time_taken,
+                answers,
+                is_completed,
+                quiz:quizzes (
+                    quiz_id,
                     quiz_name,
                     quiz_code,
                     created_by,
+                    questions,
                     due_date,
-                    teacher_login (
+                    created_at,
+                    teacher:teacher_login (
+                        id,
                         username,
-                        email
+                        email,
+                        password
                     )
                 )
             `)
             .eq('user_id', student_id)
-            .order('completed_at', { ascending: false });
+            .order('time_taken', { ascending: false });
 
         if (error) {
             console.error('Attempted quizzes fetch error:', error);
@@ -51,15 +57,16 @@ exports.handler = async (event) => {
                 attempt_id: attempt.id,
                 score: attempt.score,
                 total_questions: attempt.total_questions,
-                completed_at: attempt.completed_at,
+                completed_at: attempt.time_taken,
+                is_completed: attempt.is_completed,
                 quiz: {
-                    id: attempt.quizzes.id,
-                    title: attempt.quizzes.quiz_name,
-                    code: attempt.quizzes.quiz_code,
-                    due_date: attempt.quizzes.due_date,
+                    id: attempt.quiz.quiz_id,
+                    title: attempt.quiz.quiz_name,
+                    code: attempt.quiz.quiz_code,
+                    due_date: attempt.quiz.due_date,
                     teacher: {
-                        name: attempt.quizzes.teacher_login.username,
-                        email: attempt.quizzes.teacher_login.email
+                        name: attempt.quiz.teacher.username,
+                        email: attempt.quiz.teacher.email
                     }
                 }
             }))
