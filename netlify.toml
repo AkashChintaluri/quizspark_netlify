@@ -1,5 +1,5 @@
 [build]
-command = "npm install && cd frontend && npm install && npm run build"
+command = "cd frontend && npm run build"
 publish = "frontend/dist"
 functions = "functions"
 
@@ -8,10 +8,9 @@ directory = "functions"
 node_bundler = "esbuild"
 
 [[redirects]]
-from = "/api/*"
-to = "/.netlify/functions/:splat"
+from = "/*"
+to = "/index.html"
 status = 200
-force = true
 
 [build.environment]
-NODE_VERSION = "18.17.0"
+NODE_VERSION = "18"
