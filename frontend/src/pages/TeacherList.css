@@ -189,7 +189,6 @@
     font-size: 1rem;
     color: #64748b;
     padding: 1rem;
-    animation: pulse 1.5s infinite;
 }
 
 .success-message {
@@ -213,12 +212,6 @@
     text-align: center;
     font-size: 0.9rem;
     box-shadow: 0 1px 3px rgba(116, 42, 42, 0.1);
-}
-
-@keyframes pulse {
-    0% { opacity: 1; }
-    50% { opacity: 0.5; }
-    100% { opacity: 1; }
 }
 
 @keyframes fadeIn {
@@ -262,7 +255,7 @@
     }
 
     .teacher-card {
-        flex-direction: column; /* Stack on very small screens */
+        flex-direction: column;
         text-align: center;
     }
 
@@ -275,6 +268,6 @@
     .unsubscribe-btn {
         padding: 0.4rem 0.8rem;
         font-size: 0.8rem;
-        width: 100%; /* Full width on small screens */
+        width: 100%;
     }
 }

@@ -111,11 +111,12 @@ function SignupForm() {
                             value={formData.userType}
                             onChange={handleInputChange}
                             disabled={isLoading}
+                            className={!formData.userType ? 'placeholder' : ''}
                         >
+                            <option value="">I am a</option>
                             <option value="student">Student</option>
                             <option value="teacher">Teacher</option>
                         </select>
-                        <span className="select-placeholder">I am a</span>
                     </div>
                     {errorMessage && <div className="error-message">{errorMessage}</div>}
                     <button type="submit" className="signup-button" disabled={isLoading}>

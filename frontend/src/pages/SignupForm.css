@@ -99,13 +99,11 @@
     background-position: right 1rem center;
     background-size: 1rem;
     padding-right: 2.5rem;
+    width: 100%;
 }
 
-.form-group select:focus {
-    outline: none;
-    border-color: #4f46e5;
-    box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
-    background: white;
+.form-group select.placeholder {
+    color: #a0aec0;
 }
 
 .form-group select option {
@@ -115,6 +113,14 @@
 
 .form-group select option[value=""] {
     color: #a0aec0;
+    font-style: italic;
+}
+
+.form-group select:focus {
+    outline: none;
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
+    background: white;
 }
 
 .signup-button {
