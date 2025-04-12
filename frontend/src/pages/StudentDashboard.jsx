@@ -177,9 +177,14 @@ function HomeContent({ currentUser, setActiveTab }) {
                     endpoints.map((url) => axios.get(url))
                 );
 
-                setUpcomingQuizzes(upcomingResponse.data);
-                setStats(statsResponse.data || { total_attempts: 0, average_score: 0, completed_quizzes: 0 });
-                setAttemptedQuizzes(attemptedResponse.data);
+                // Ensure we have arrays for quizzes
+                const upcomingData = upcomingResponse.data?.quizzes || [];
+                const attemptedData = attemptedResponse.data?.quizzes || [];
+                const statsData = statsResponse.data || { total_attempts: 0, average_score: 0, completed_quizzes: 0 };
+
+                setUpcomingQuizzes(Array.isArray(upcomingData) ? upcomingData : []);
+                setAttemptedQuizzes(Array.isArray(attemptedData) ? attemptedData : []);
+                setStats(statsData);
             } catch (err) {
                 setError('Failed to load dashboard data.');
                 console.error('Error fetching dashboard data:', err);
@@ -235,7 +240,7 @@ function HomeContent({ currentUser, setActiveTab }) {
 
                     <div className="upcoming-quizzes">
                         <h3>Upcoming Quizzes</h3>
-                        {upcomingQuizzes.length === 0 ? (
+                        {!Array.isArray(upcomingQuizzes) || upcomingQuizzes.length === 0 ? (
                             <p>No upcoming quizzes available.</p>
                         ) : (
                             <div className="quiz-list">
@@ -252,7 +257,7 @@ function HomeContent({ currentUser, setActiveTab }) {
                                             </div>
                                             <div className="text-right">
                                                 <p className="text-sm text-gray-500">Due: {new Date(quiz.due_date).toLocaleString()}</p>
-                                                <p className="text-sm text-gray-500">Teacher: {quiz.teacher_login.username}</p>
+                                                <p className="text-sm text-gray-500">Teacher: {quiz.teacher_login?.username || 'Unknown'}</p>
                                             </div>
                                         </div>
                                     </div>
@@ -263,7 +268,7 @@ function HomeContent({ currentUser, setActiveTab }) {
 
                     <div className="attempted-quizzes">
                         <h3>Attempted Quizzes</h3>
-                        {attemptedQuizzes.length === 0 ? (
+                        {!Array.isArray(attemptedQuizzes) || attemptedQuizzes.length === 0 ? (
                             <p>You have not attempted any quizzes yet.</p>
                         ) : (
                             <div className="quiz-list">
@@ -280,7 +285,7 @@ function HomeContent({ currentUser, setActiveTab }) {
                                             </div>
                                             <div className="text-right">
                                                 <p className="text-sm text-gray-500">Score: {quiz.score}/{quiz.total_questions}</p>
-                                                <p className="text-sm text-gray-500">Teacher: {quiz.teacher_login.username}</p>
+                                                <p className="text-sm text-gray-500">Teacher: {quiz.teacher_login?.username || 'Unknown'}</p>
                                             </div>
                                         </div>
                                     </div>
