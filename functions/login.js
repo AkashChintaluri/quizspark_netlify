@@ -1,64 +1,10 @@
-const { Pool } = require('pg');
+const { createClient } = require('@supabase/supabase-js');
 const bcrypt = require('bcryptjs');
 
-// Parse database URL and ensure SSL is properly configured
-const getDbConfig = () => {
-    try {
-        const connectionString = process.env.DATABASE_URL;
-        
-        // Parse the connection string to extract host
-        const match = connectionString.match(/@([^:]+):/);
-        const host = match ? match[1] : null;
-        
-        console.log('Database connection check:', {
-            hasConnectionString: !!connectionString,
-            host: host || 'not found',
-            hasSSL: connectionString.includes('sslmode=require')
-        });
-
-        // Try direct connection parameters if URL parsing fails
-        if (!host) {
-            console.log('Falling back to direct connection parameters');
-            return {
-                host: 'db.hntrpejpiboxnlbzrbbc.supabase.co',
-                port: 5432,
-                database: 'postgres',
-                user: 'postgres',
-                password: process.env.DB_PASSWORD || 'CpI8sfi8CuIvp5Kw',
-                ssl: {
-                    rejectUnauthorized: false
-                }
-            };
-        }
-
-        return {
-            connectionString,
-            ssl: {
-                rejectUnauthorized: false
-            }
-        };
-    } catch (error) {
-        console.error('Error in getDbConfig:', error);
-        throw error;
-    }
-};
-
-// Create pool with error logging
-let pool;
-try {
-    const config = getDbConfig();
-    console.log('Attempting to create pool with config type:', typeof config);
-    pool = new Pool(config);
-    console.log('Pool created successfully');
-} catch (error) {
-    console.error('Error creating pool:', error);
-    throw error;
-}
-
-// Add error handler for pool
-pool.on('error', (err) => {
-    console.error('Unexpected error on idle client:', err);
-});
+// Initialize Supabase client
+const supabaseUrl = 'https://hntrpejpiboxnlbzrbbc.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhudHJwZWpwaWJveG5sYnpyYmJjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0MzI0MDg1MywiZXhwIjoyMDU4ODE2ODUzfQ.1ZCETVyCJaxcC-fqabKqrjWUESRagY9x0TcOgNTp0tI';
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 exports.handler = async (event) => {
     // CORS headers
@@ -76,7 +22,6 @@ exports.handler = async (event) => {
         };
     }
 
-    let client;
     try {
         // Parse request body
         const body = event.isBase64Encoded
@@ -102,23 +47,27 @@ exports.handler = async (event) => {
             };
         }
 
-        console.log('Attempting database connection...');
-        client = await pool.connect();
-        console.log('Database connection successful');
-
-        // Query user table
+        // Query the appropriate table based on userType
         const table = `${userType}_login`;
-        const query = `
-            SELECT id, username, email, password
-            FROM ${table}
-            WHERE username = $1
-        `;
-        
-        console.log('Executing query for user:', username);
-        const result = await client.query(query, [username]);
-        console.log('Query executed successfully');
+        const { data, error } = await supabase
+            .from(table)
+            .select('id, username, email, password')
+            .eq('username', username)
+            .single();
 
-        if (result.rows.length === 0) {
+        if (error) {
+            console.error('Database query error:', error);
+            return {
+                statusCode: 500,
+                headers,
+                body: JSON.stringify({ 
+                    error: 'Database query failed',
+                    details: error.message
+                })
+            };
+        }
+
+        if (!data) {
             return {
                 statusCode: 401,
                 headers,
@@ -129,10 +78,8 @@ exports.handler = async (event) => {
             };
         }
 
-        const user = result.rows[0];
-        
         // Compare passwords
-        const isValidPassword = await bcrypt.compare(password, user.password);
+        const isValidPassword = await bcrypt.compare(password, data.password);
         
         if (!isValidPassword) {
             return {
@@ -152,9 +99,9 @@ exports.handler = async (event) => {
             body: JSON.stringify({
                 success: true,
                 user: {
-                    id: user.id,
-                    username: user.username,
-                    email: user.email,
+                    id: data.id,
+                    username: data.username,
+                    email: data.email,
                     userType
                 }
             })
@@ -172,14 +119,9 @@ exports.handler = async (event) => {
             statusCode: 500,
             headers,
             body: JSON.stringify({ 
-                error: 'Database connection failed',
-                details: error.message,
-                code: error.code
+                error: 'Login failed',
+                details: error.message
             })
         };
-    } finally {
-        if (client) {
-            client.release();
-        }
     }
 };

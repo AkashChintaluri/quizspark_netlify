@@ -1,45 +1,9 @@
-const { Pool } = require('pg');
+const { createClient } = require('@supabase/supabase-js');
 
-const getDbConfig = () => {
-    try {
-        const connectionString = process.env.DATABASE_URL;
-        
-        // Parse the connection string to extract host
-        const match = connectionString.match(/@([^:]+):/);
-        const host = match ? match[1] : null;
-        
-        console.log('Database connection check:', {
-            hasConnectionString: !!connectionString,
-            host: host || 'not found',
-            hasSSL: connectionString.includes('sslmode=require')
-        });
-
-        // Try direct connection parameters if URL parsing fails
-        if (!host) {
-            console.log('Falling back to direct connection parameters');
-            return {
-                host: 'db.hntrpejpiboxnlbzrbbc.supabase.co',
-                port: 5432,
-                database: 'postgres',
-                user: 'postgres',
-                password: process.env.DB_PASSWORD || 'CpI8sfi8CuIvp5Kw',
-                ssl: {
-                    rejectUnauthorized: false
-                }
-            };
-        }
-
-        return {
-            connectionString,
-            ssl: {
-                rejectUnauthorized: false
-            }
-        };
-    } catch (error) {
-        console.error('Error in getDbConfig:', error);
-        throw error;
-    }
-};
+// Initialize Supabase client
+const supabaseUrl = 'https://hntrpejpiboxnlbzrbbc.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhudHJwZWpwaWJveG5sYnpyYmJjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0MzI0MDg1MywiZXhwIjoyMDU4ODE2ODUzfQ.1ZCETVyCJaxcC-fqabKqrjWUESRagY9x0TcOgNTp0tI';
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 exports.handler = async (event) => {
     const headers = {
@@ -47,37 +11,33 @@ exports.handler = async (event) => {
         'Content-Type': 'application/json'
     };
 
-    let client;
     try {
-        console.log('Testing database connection...');
+        console.log('Testing Supabase connection...');
         
-        const config = getDbConfig();
-        console.log('Creating pool with config type:', typeof config);
-        
-        const pool = new Pool(config);
-        console.log('Pool created successfully');
+        // Test the connection by fetching system time
+        const { data, error } = await supabase
+            .from('student_login')
+            .select('count(*)')
+            .single();
 
-        client = await pool.connect();
-        console.log('Successfully connected to database');
-
-        const result = await client.query('SELECT NOW()');
-        console.log('Successfully executed test query');
+        if (error) {
+            throw error;
+        }
 
         return {
             statusCode: 200,
             headers,
             body: JSON.stringify({
                 success: true,
-                message: 'Database connection successful',
-                timestamp: result.rows[0].now
+                message: 'Supabase connection successful',
+                data
             })
         };
     } catch (error) {
         console.error('Database test error:', {
             name: error.name,
             message: error.message,
-            code: error.code,
-            stack: error.stack
+            code: error.code
         });
 
         return {
@@ -86,13 +46,8 @@ exports.handler = async (event) => {
             body: JSON.stringify({
                 success: false,
                 error: 'Database connection failed',
-                details: error.message,
-                code: error.code
+                details: error.message
             })
         };
-    } finally {
-        if (client) {
-            client.release();
-        }
     }
 }; 
