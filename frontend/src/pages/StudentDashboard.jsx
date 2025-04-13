@@ -530,7 +530,6 @@ function TakeQuizContent({ currentUser, quizCode, currentQuiz, loading, error })
             if (response.data.success) {
                 setIsSubmitted(true);
                 setScore(response.data.score);
-                // Redirect to results page after 3 seconds
                 setTimeout(() => {
                     navigate(`/student-dashboard/quiz/${quizCode}`);
                 }, 3000);
@@ -539,6 +538,15 @@ function TakeQuizContent({ currentUser, quizCode, currentQuiz, loading, error })
             console.error('Error submitting quiz:', err);
         }
     };
+
+    // Timer logic
+    useEffect(() => {
+        if (timeLeft <= 0 || isSubmitted) return;
+        const timer = setInterval(() => {
+            setTimeLeft(prev => prev - 1);
+        }, 1000);
+        return () => clearInterval(timer);
+    }, [timeLeft, isSubmitted]);
 
     if (!quizCode) {
         return (
@@ -555,6 +563,7 @@ function TakeQuizContent({ currentUser, quizCode, currentQuiz, loading, error })
                         type="text"
                         name="quizCode"
                         placeholder="Enter quiz code"
+                        className="quiz-code-input"
                         required
                     />
                     <button type="submit">Start Quiz</button>
