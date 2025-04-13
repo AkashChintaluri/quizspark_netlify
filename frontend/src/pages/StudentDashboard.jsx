@@ -92,23 +92,28 @@ function StudentDashboard() {
 
     useEffect(() => {
         const fetchQuiz = async () => {
+            // Extract quiz code from URL
+            const quizCodeMatch = location.pathname.match(/\/take-quiz\/([^/]+)/);
+            const quizCode = quizCodeMatch ? quizCodeMatch[1] : null;
+            
             if (!quizCode) {
-                console.log('No quiz code provided, skipping fetch');
+                console.log('No quiz code in URL');
                 return;
             }
             
             try {
-                console.log('Starting quiz fetch for code:', quizCode);
+                setLoading(true);
+                setError('');
+                console.log('Fetching quiz with code:', quizCode);
                 const response = await axios.post(`${API_BASE_URL}/quizzes-get-by-code`, {
                     quiz_code: quizCode
                 });
-                console.log('Raw quiz response:', response);
-                console.log('Quiz response data:', response.data);
+                console.log('Quiz response:', response.data);
                 
                 if (response.data?.quiz) {
                     const quizData = response.data.quiz;
-                    console.log('Raw quiz data:', quizData);
-                    const transformedQuiz = {
+                    console.log('Transformed quiz data:', quizData);
+                    setCurrentQuiz({
                         id: quizData.quiz_id,
                         name: quizData.quiz_name,
                         code: quizData.quiz_code,
@@ -117,20 +122,21 @@ function StudentDashboard() {
                         teacher: quizData.teacher,
                         totalAttempts: quizData.total_attempts,
                         averageScore: quizData.average_score
-                    };
-                    console.log('Transformed quiz data:', transformedQuiz);
-                    setCurrentQuiz(transformedQuiz);
+                    });
                 } else {
-                    console.log('No quiz data found in response');
+                    console.log('No quiz data received');
+                    setError('Quiz not found');
                 }
             } catch (err) {
                 console.error('Error fetching quiz:', err);
-                console.error('Error details:', err.response?.data);
+                setError('Failed to load quiz');
+            } finally {
+                setLoading(false);
             }
         };
 
         fetchQuiz();
-    }, [quizCode]);
+    }, [location.pathname]);
 
     const handleTabChange = (tab) => {
         setActiveTab(tab.toLowerCase());
@@ -233,14 +239,24 @@ function Sidebar({ activeTab, currentUser, handleTabChange }) {
 
 function Content({ activeTab, setActiveTab, currentUser, location, setCurrentUser }) {
     const { pathname } = location;
-    const { quizCode } = useParams();
     const [currentQuiz, setCurrentQuiz] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
 
     useEffect(() => {
         const fetchQuiz = async () => {
-            if (!quizCode) return;
+            // Extract quiz code from URL
+            const quizCodeMatch = pathname.match(/\/take-quiz\/([^/]+)/);
+            const quizCode = quizCodeMatch ? quizCodeMatch[1] : null;
+            
+            if (!quizCode) {
+                console.log('No quiz code in URL');
+                return;
+            }
             
             try {
+                setLoading(true);
+                setError('');
                 console.log('Fetching quiz with code:', quizCode);
                 const response = await axios.post(`${API_BASE_URL}/quizzes-get-by-code`, {
                     quiz_code: quizCode
@@ -260,21 +276,33 @@ function Content({ activeTab, setActiveTab, currentUser, location, setCurrentUse
                         totalAttempts: quizData.total_attempts,
                         averageScore: quizData.average_score
                     });
+                } else {
+                    console.log('No quiz data received');
+                    setError('Quiz not found');
                 }
             } catch (err) {
                 console.error('Error fetching quiz:', err);
+                setError('Failed to load quiz');
+            } finally {
+                setLoading(false);
             }
         };
 
         fetchQuiz();
-    }, [quizCode]);
+    }, [pathname]);
 
-    console.log('Content rendering with:', { pathname, quizCode, activeTab, currentQuiz });
+    console.log('Content rendering with:', { pathname, activeTab, currentQuiz, loading, error });
 
     if (pathname.includes('/take-quiz/')) {
         const code = pathname.split('/take-quiz/')[1];
         console.log('Rendering TakeQuizContent with code:', code);
-        return <TakeQuizContent currentUser={currentUser} quizCode={code} currentQuiz={currentQuiz} />;
+        return <TakeQuizContent 
+            currentUser={currentUser} 
+            quizCode={code} 
+            currentQuiz={currentQuiz}
+            loading={loading}
+            error={error}
+        />;
     }
 
     if (pathname.includes('/quiz/')) {
@@ -474,13 +502,12 @@ function HomeContent({ currentUser, setActiveTab }) {
     );
 }
 
-function TakeQuizContent({ currentUser, quizCode, currentQuiz }) {
+function TakeQuizContent({ currentUser, quizCode, currentQuiz, loading, error }) {
     const [selectedAnswers, setSelectedAnswers] = useState({});
     const [timeLeft, setTimeLeft] = useState(30 * 60); // 30 minutes in seconds
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [score, setScore] = useState(0);
     const navigate = useNavigate();
-    const [error, setError] = useState('');
 
     console.log('TakeQuizContent rendering with quiz:', currentQuiz);
 
@@ -510,7 +537,6 @@ function TakeQuizContent({ currentUser, quizCode, currentQuiz }) {
             }
         } catch (err) {
             console.error('Error submitting quiz:', err);
-            setError('Failed to submit quiz');
         }
     };
 
@@ -535,6 +561,14 @@ function TakeQuizContent({ currentUser, quizCode, currentQuiz }) {
                 </form>
             </div>
         );
+    }
+
+    if (loading) {
+        return <div className="loading">Loading quiz...</div>;
+    }
+
+    if (error) {
+        return <div className="error-message">{error}</div>;
     }
 
     if (!currentQuiz) {
