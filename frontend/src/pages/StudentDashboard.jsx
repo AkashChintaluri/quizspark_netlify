@@ -197,6 +197,12 @@ function StudentDashboard() {
                     console.error('No quiz code found in URL');
                     navigate('/student-dashboard/results');
                 }
+                
+                // Refresh the upcoming quizzes list
+                const upcomingResponse = await axios.get(`${API_BASE_URL}/upcoming-quizzes?student_id=${currentUser.id}`);
+                if (upcomingResponse.data?.quizzes) {
+                    setQuizzes(upcomingResponse.data.quizzes);
+                }
             }
         } catch (err) {
             console.error('Error submitting quiz:', err);
@@ -410,7 +416,14 @@ function HomeContent({ currentUser, setActiveTab }) {
                 // Transform and set the data
                 setUpcomingQuizzes((upcomingResponse.data?.quizzes || []).map(transformQuizData));
                 setAttemptedQuizzes((attemptedResponse.data?.quizzes || []).map(transformQuizData));
-                setStats(statsResponse.data || { total_attempts: 0, average_score: 0, completed_quizzes: 0 });
+                
+                // Ensure stats are properly formatted
+                const formattedStats = {
+                    total_attempts: statsResponse.data?.total_attempts || 0,
+                    average_score: statsResponse.data?.average_score || 0,
+                    completed_quizzes: statsResponse.data?.completed_quizzes || 0
+                };
+                setStats(formattedStats);
             } catch (err) {
                 setError('Failed to load dashboard data.');
                 console.error('Error fetching dashboard data:', err);
@@ -449,7 +462,7 @@ function HomeContent({ currentUser, setActiveTab }) {
                             </div>
                             <div className="stat-card">
                                 <h4>Average Score</h4>
-                                <p>{(stats.average_score || 0).toFixed(1)}%</p>
+                                <p>{Math.round(stats.average_score)}%</p>
                             </div>
                             <div className="stat-card">
                                 <h4>Completed Quizzes</h4>
@@ -478,7 +491,14 @@ function HomeContent({ currentUser, setActiveTab }) {
                                             <div className="quiz-details">
                                                 <div className="detail-item">
                                                     <span className="label">Due Date</span>
-                                                    <span className="value">{new Date(quiz.due_date).toLocaleString()}</span>
+                                                    <span className="value">{new Date(quiz.due_date).toLocaleString('en-US', { 
+                                                        year: 'numeric', 
+                                                        month: 'short', 
+                                                        day: 'numeric',
+                                                        hour: '2-digit',
+                                                        minute: '2-digit',
+                                                        hour12: false
+                                                    })}</span>
                                                 </div>
                                                 <div className="detail-item">
                                                     <span className="label">Teacher</span>
@@ -512,15 +532,23 @@ function HomeContent({ currentUser, setActiveTab }) {
                                             <div className="quiz-details">
                                                 <div className="detail-item">
                                                     <span className="label">Score</span>
-                                                    <span className="value">{quiz.score}/{quiz.total_questions}</span>
+                                                    <span className="value">{Math.round((quiz.score / quiz.total_questions) * 100)}%</span>
                                                 </div>
                                                 <div className="detail-item">
                                                     <span className="label">Teacher</span>
                                                     <span className="value">{quiz.teacher_login?.username || 'Unknown'}</span>
                                                 </div>
-                                            </div>
-                                            <div className="quiz-actions">
-                                                <button className="view-results-btn">View Results</button>
+                                                <div className="detail-item">
+                                                    <span className="label">Completed</span>
+                                                    <span className="value">{new Date(quiz.attempt_date).toLocaleString('en-US', { 
+                                                        year: 'numeric', 
+                                                        month: 'short', 
+                                                        day: 'numeric',
+                                                        hour: '2-digit',
+                                                        minute: '2-digit',
+                                                        hour12: false
+                                                    })}</span>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
