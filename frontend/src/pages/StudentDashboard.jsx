@@ -412,8 +412,14 @@ function HomeContent({ currentUser, setActiveTab }) {
                 });
 
                 const transformedAttemptedQuizzes = (attemptedResponse.data?.quizzes || []).map(transformQuizData);
+                const transformedUpcomingQuizzes = (upcomingResponse.data?.quizzes || []).map(transformQuizData);
+
+                // Filter out attempted quizzes from upcoming quizzes
+                const attemptedQuizIds = new Set(transformedAttemptedQuizzes.map(quiz => quiz.quiz_id));
+                const filteredUpcomingQuizzes = transformedUpcomingQuizzes.filter(quiz => !attemptedQuizIds.has(quiz.quiz_id));
+
                 setAttemptedQuizzes(transformedAttemptedQuizzes);
-                setUpcomingQuizzes((upcomingResponse.data?.quizzes || []).map(transformQuizData));
+                setUpcomingQuizzes(filteredUpcomingQuizzes);
 
                 // Calculate average score and find highest score
                 let totalScore = 0;
