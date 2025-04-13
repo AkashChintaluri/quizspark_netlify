@@ -606,40 +606,38 @@ function TakeQuizContent({ currentUser, quizCode, currentQuiz, loading, error })
 
     return (
         <div className="content">
-            <div className="quiz-container">
-                <h2 className="quiz-title">{currentQuiz.name}</h2>
-                <div className="question-list">
-                    {currentQuiz.questions.map((question, index) => (
-                        <div key={index} className="question-card">
-                            <span className="question-number">Question {index + 1}</span>
-                            <p className="question-text">{question.question_text}</p>
-                            <div className="options-container">
-                                {question.options.map((option, optionIndex) => (
-                                    <div key={optionIndex} className="option-item">
-                                        <label className={selectedAnswers[index] === optionIndex ? 'selected' : ''}>
-                                            <input
-                                                type="radio"
-                                                name={`question_${index}`}
-                                                value={optionIndex}
-                                                checked={selectedAnswers[index] === optionIndex}
-                                                onChange={() => handleAnswerChange(index, optionIndex)}
-                                            />
-                                            <span className="option-text">{option.text}</span>
-                                        </label>
-                                    </div>
-                                ))}
-                            </div>
+            <h2 className="quiz-title">{currentQuiz.name}</h2>
+            <div className="question-list">
+                {currentQuiz.questions.map((question, index) => (
+                    <div key={index} className="question-card">
+                        <span className="question-number">Question {index + 1}</span>
+                        <p className="question-text">{question.question_text}</p>
+                        <div className="options-container">
+                            {question.options.map((option, optionIndex) => (
+                                <div key={optionIndex} className="option-item">
+                                    <label className={selectedAnswers[index] === optionIndex ? 'selected' : ''}>
+                                        <input
+                                            type="radio"
+                                            name={`question_${index}`}
+                                            value={optionIndex}
+                                            checked={selectedAnswers[index] === optionIndex}
+                                            onChange={() => handleAnswerChange(index, optionIndex)}
+                                        />
+                                        <span className="option-text">{option.text}</span>
+                                    </label>
+                                </div>
+                            ))}
                         </div>
-                    ))}
-                </div>
-                <button
-                    className="submit-quiz-btn"
-                    onClick={handleSubmitQuiz}
-                    disabled={loading || Object.keys(selectedAnswers).length !== currentQuiz.questions.length}
-                >
-                    {loading ? 'Submitting...' : 'Submit Quiz'}
-                </button>
+                    </div>
+                ))}
             </div>
+            <button
+                className="submit-quiz-btn"
+                onClick={handleSubmitQuiz}
+                disabled={loading || Object.keys(selectedAnswers).length !== currentQuiz.questions.length}
+            >
+                {loading ? 'Submitting...' : 'Submit Quiz'}
+            </button>
         </div>
     );
 }
