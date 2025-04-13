@@ -177,7 +177,7 @@ function StudentDashboard() {
             });
 
             const response = await axios.post(`${API_BASE_URL}/submit-quiz`, {
-                quiz_id: currentQuiz.id,
+                quiz_id: currentQuiz.quiz_id,
                 student_id: currentUser.id,
                 answers: answersObject,
                 total_questions: currentQuiz.questions.length,
@@ -185,8 +185,18 @@ function StudentDashboard() {
             });
             
             if (response.data.success) {
-                // Immediately navigate to results page
-                navigate(`/student-dashboard/quiz/${quizCode}`);
+                // Get the quiz code from the current URL
+                const pathname = location.pathname;
+                const quizCodeMatch = pathname.match(/\/student-dashboard\/take-quiz\/([^/]+)/);
+                const quizCode = quizCodeMatch ? quizCodeMatch[1] : null;
+                
+                if (quizCode) {
+                    // Navigate to the results page with the correct quiz code
+                    navigate(`/student-dashboard/quiz/${quizCode}`, { replace: true });
+                } else {
+                    console.error('No quiz code found in URL');
+                    navigate('/student-dashboard/results');
+                }
             }
         } catch (err) {
             console.error('Error submitting quiz:', err);
@@ -683,229 +693,175 @@ function ResultsContent({ currentUser, setActiveTab }) {
     const [quizzes, setQuizzes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [quizResult, setQuizResult] = useState(null);
+    const { quizCode } = useParams();
+    const navigate = useNavigate();
 
     useEffect(() => {
-        const fetchQuizzes = async () => {
+        const fetchQuizResult = async () => {
+            if (!quizCode) return;
+            
+            setLoading(true);
+            setError(null);
+            try {
+                const response = await axios.get(`${API_BASE_URL}/quiz-result?quiz_code=${quizCode}&student_id=${currentUser.id}`);
+                if (response.data?.attempt) {
+                    setQuizResult(response.data.attempt);
+                }
+            } catch (err) {
+                console.error('Error fetching quiz result:', err);
+                setError('Failed to load quiz result');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchQuizResult();
+    }, [quizCode, currentUser.id]);
+
+    useEffect(() => {
+        const fetchAttemptedQuizzes = async () => {
             try {
                 setLoading(true);
                 setError(null);
                 const response = await axios.get(`${API_BASE_URL}/attempted-quizzes?student_id=${currentUser.id}`);
                 
                 if (response.data?.quizzes) {
-                    // Transform the data to match the expected structure
                     const transformedQuizzes = response.data.quizzes.map(quiz => ({
                         id: quiz.quiz_id,
-                        title: quiz.quiz_name,
+                        name: quiz.quiz_name,
                         code: quiz.quiz_code,
                         score: quiz.score,
-                        completedAt: quiz.completed_at,
+                        total_questions: quiz.total_questions,
+                        percentage: Math.round((quiz.score / quiz.total_questions) * 100),
+                        completedAt: quiz.attempt_date,
                         dueDate: quiz.due_date,
                         teacher: {
-                            name: quiz.teacher_login?.username || '',
-                            email: quiz.teacher_login?.email || ''
+                            name: quiz.teacher_login?.username || 'Unknown Teacher'
                         }
                     }));
-
                     setQuizzes(transformedQuizzes);
-                } else {
-                    console.warn('Unexpected response format:', response.data);
-                    setQuizzes([]);
                 }
             } catch (err) {
-                console.error('Error fetching quiz results:', err);
-                setError('Failed to load quiz results. Please try again later.');
+                console.error('Error fetching attempted quizzes:', err);
+                setError('Failed to load quiz history');
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchQuizzes();
+        fetchAttemptedQuizzes();
     }, [currentUser.id]);
 
-    const [quizCode, setQuizCode] = useState('');
-    const [quizResult, setQuizResult] = useState(null);
-    const [retestMessage, setRetestMessage] = useState('');
-    const [retestLoading, setRetestLoading] = useState(false);
-    const { quizCode: urlQuizCode } = useParams();
-    const navigate = useNavigate();
-
-    useEffect(() => {
-        if (!urlQuizCode) {
-            setQuizResult(null);
-            setQuizCode('');
-        }
-    }, [urlQuizCode]);
-
-    useEffect(() => {
-        const fetchQuizResult = async (code) => {
-            setLoading(true);
-            setError('');
-            try {
-                const response = await axios.get(`${API_BASE_URL}/quiz-result?quiz_code=${code}&student_id=${currentUser.id}`);
-                if (response.status !== 200) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                setQuizResult(response.data);
-            } catch (error) {
-                setError('An error occurred while fetching the quiz result.');
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        if (urlQuizCode) {
-            setQuizCode(urlQuizCode);
-            fetchQuizResult(urlQuizCode);
-        }
-    }, [urlQuizCode, currentUser?.id]);
-
-    const handleQuizCodeSubmit = (e) => {
-        e.preventDefault();
-        if (quizCode) {
-            navigate(`/student-dashboard/quiz/${quizCode}`);
-        }
+    const handleQuizClick = (code) => {
+        navigate(`/student-dashboard/quiz/${code}`);
     };
 
-    const handleCheckLeaderboard = async () => {
-        console.log('Check Leaderboard button clicked');
-        console.log('quizResult:', quizResult);
-        if (quizResult?.quiz_id) {
-            try {
-                const response = await axios.get(`${API_BASE_URL}/quizzes/id/${quizResult.quiz_id}`);
-                if (response.data?.quiz_code) {
-                    console.log('Navigating to leaderboard with quiz code:', response.data.quiz_code);
-                    setActiveTab('leaderboard');
-                    navigate(`/student-dashboard/leaderboard/${response.data.quiz_code}`, {
-                        state: { activeTab: 'leaderboard' }
-                    });
-                } else {
-                    console.log('No quiz code found in response');
-                }
-            } catch (error) {
-                console.error('Error fetching quiz code:', error);
-            }
-        } else {
-            console.log('No quiz_id found in quizResult');
-        }
-    };
+    if (loading) {
+        return <div className="loading">Loading...</div>;
+    }
 
-    const handleRequestRetest = async (quizCode, attemptId) => {
-        try {
-            setRetestLoading(true);
-            setRetestMessage('');
-            
-            const response = await axios.post(`${API_BASE_URL}/retest-requests`, {
-                quiz_code: quizCode,
-                student_id: currentUser.id,
-                attempt_id: attemptId,
-                request_date: new Date().toISOString()
-            });
+    if (error) {
+        return <div className="error-message">{error}</div>;
+    }
 
-            if (response.data.success) {
-                setRetestMessage('Retest request submitted successfully!');
-                setTimeout(() => {
-                    setRetestMessage('');
-                    setRetestLoading(false);
-                }, 3000);
-            }
-        } catch (error) {
-            console.error('Error requesting retest:', error);
-            setRetestMessage('Failed to submit retest request. Please try again.');
-            setRetestLoading(false);
-        }
-    };
-
-    const renderQuizResult = () => {
-        if (!quizResult) return null;
-
+    if (quizCode && quizResult) {
         return (
-            <div className="quiz-result">
-                <h3>{quizResult.quizName}</h3>
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h3 className="text-lg font-medium text-gray-900">{quizResult.quizName}</h3>
-                        <p className="text-sm text-gray-500">Code: {quizResult.quiz_code}</p>
-                    </div>
-                    <div className="text-right">
-                        <p className="text-sm text-gray-500">Score: {quizResult.score}/{quizResult.totalQuestions}</p>
-                        <p className="text-sm text-gray-500">Teacher: {quizResult.teacher_login.username}</p>
-                    </div>
-                </div>
-                {quizResult.questions.map((question, questionIndex) => (
-                    <div key={questionIndex} className="question-card">
-                        <span className="question-number">Question {questionIndex + 1}</span>
-                        <p className="question-text">{question.question_text}</p>
-                        <div className="options-container">
-                            {question.options.map((option, optionIndex) => {
-                                const isSelected = quizResult.userAnswers[questionIndex] == optionIndex;
-                                const isCorrectAnswer = option.isCorrectAnswer;
-                                let className = 'option-item';
-                                if (isCorrectAnswer) {
-                                    className += ' correct';
-                                } else if (isSelected && !isCorrectAnswer) {
-                                    className += ' incorrect';
-                                }
-                                return (
-                                    <div key={optionIndex} className={className}>
-                                        <label>
-                                            <input
-                                                type="radio"
-                                                checked={isSelected}
-                                                readOnly
-                                            />
-                                            <span className="option-text">{option.text}</span>
-                                        </label>
+            <div className="content">
+                <div className="quiz-result-details">
+                    <h2>Quiz Results</h2>
+                    <div className="result-card">
+                        <div className="result-header">
+                            <h3>{quizResult.quiz_name}</h3>
+                            <span className="quiz-code">Code: {quizResult.quiz_code}</span>
+                        </div>
+                        <div className="result-stats">
+                            <div className="stat-item">
+                                <span className="label">Score:</span>
+                                <span className="value">{quizResult.score}/{quizResult.total_questions}</span>
+                            </div>
+                            <div className="stat-item">
+                                <span className="label">Percentage:</span>
+                                <span className="value">{Math.round((quizResult.score / quizResult.total_questions) * 100)}%</span>
+                            </div>
+                            <div className="stat-item">
+                                <span className="label">Completed:</span>
+                                <span className="value">{new Date(quizResult.attempt_date).toLocaleString()}</span>
+                            </div>
+                        </div>
+                        <div className="questions-list">
+                            {quizResult.questions?.map((question, index) => (
+                                <div key={index} className="question-result">
+                                    <div className="question-header">
+                                        <span className="question-number">Question {index + 1}</span>
+                                        <span className={`status ${question.is_correct ? 'correct' : 'incorrect'}`}>
+                                            {question.is_correct ? 'Correct' : 'Incorrect'}
+                                        </span>
                                     </div>
-                                );
-                            })}
+                                    <p className="question-text">{question.question_text}</p>
+                                    <div className="answer-details">
+                                        <div className="your-answer">
+                                            <span className="label">Your Answer:</span>
+                                            <span className="value">{question.your_answer}</span>
+                                        </div>
+                                        {!question.is_correct && (
+                                            <div className="correct-answer">
+                                                <span className="label">Correct Answer:</span>
+                                                <span className="value">{question.correct_answer}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     </div>
-                ))}
-                <div className="button-container">
-                    <button
-                        onClick={handleCheckLeaderboard}
-                        className="check-leaderboard-btn"
-                    >
-                        Check Leaderboard
-                    </button>
-                    {!retestLoading && !retestMessage && (
-                        <button
-                            onClick={() => handleRequestRetest(quizResult.quiz_code, quizResult.attemptId)}
-                            className="request-retest-btn"
-                        >
-                            Request Retest
-                        </button>
-                    )}
                 </div>
-                {retestMessage && (
-                    <div className={`retest-message ${retestMessage.includes('success') ? 'success' : 'error'}`}>
-                        {retestMessage}
-                    </div>
-                )}
             </div>
         );
-    };
+    }
 
     return (
         <div className="content">
-            <div className="take-quiz-content">
-                <h2>Quiz Results</h2>
-                {!urlQuizCode && (
-                    <form onSubmit={handleQuizCodeSubmit}>
-                        <input
-                            type="text"
-                            placeholder="Enter Quiz Code to View Results"
-                            value={quizCode}
-                            onChange={(e) => setQuizCode(e.target.value)}
-                            className="quiz-code-input"
-                        />
-                        <button type="submit" className="view-results-btn" disabled={loading}>
-                            {loading ? 'Loading...' : 'View Results'}
-                        </button>
-                    </form>
+            <div className="quiz-history">
+                <h2>Quiz History</h2>
+                {quizzes.length === 0 ? (
+                    <p>No quiz attempts found.</p>
+                ) : (
+                    <div className="quiz-list">
+                        {quizzes.map(quiz => (
+                            <div 
+                                key={quiz.id} 
+                                className="quiz-card"
+                                onClick={() => handleQuizClick(quiz.code)}
+                            >
+                                <div className="quiz-card-content">
+                                    <div className="quiz-header">
+                                        <h3>{quiz.name}</h3>
+                                        <span className="quiz-code">{quiz.code}</span>
+                                    </div>
+                                    <div className="quiz-details">
+                                        <div className="detail-item">
+                                            <span className="label">Score:</span>
+                                            <span className="value">{quiz.score}/{quiz.total_questions}</span>
+                                        </div>
+                                        <div className="detail-item">
+                                            <span className="label">Percentage:</span>
+                                            <span className="value">{quiz.percentage}%</span>
+                                        </div>
+                                        <div className="detail-item">
+                                            <span className="label">Completed:</span>
+                                            <span className="value">{new Date(quiz.completedAt).toLocaleString()}</span>
+                                        </div>
+                                        <div className="detail-item">
+                                            <span className="label">Teacher:</span>
+                                            <span className="value">{quiz.teacher.name}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
                 )}
-                {error && <div className="error-message">{error}</div>}
-                {loading ? <div className="loading">Loading results...</div> : renderQuizResult()}
             </div>
         </div>
     );
