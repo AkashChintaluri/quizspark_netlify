@@ -1,16 +1,20 @@
-const { createClient } = require('@supabase/supabase-js');
-
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+const { 
+    supabase, 
+    handleCors, 
+    createErrorResponse, 
+    createSuccessResponse 
+} = require('./supabase-client');
 
 exports.handler = async (event) => {
+    if (event.httpMethod === 'OPTIONS') {
+        return handleCors();
+    }
+
     try {
-        const { student_id } = event.queryStringParameters;
+        const { student_id } = event.queryStringParameters || {};
 
         if (!student_id) {
-            return {
-                statusCode: 400,
-                body: JSON.stringify({ error: 'Student ID is required' })
-            };
+            return createErrorResponse(400, 'Student ID is required');
         }
 
         // Get all quizzes that:
@@ -48,21 +52,12 @@ exports.handler = async (event) => {
 
         if (error) {
             console.error('Error fetching quizzes:', error);
-            return {
-                statusCode: 500,
-                body: JSON.stringify({ error: 'Failed to fetch quizzes' })
-            };
+            return createErrorResponse(500, 'Failed to fetch quizzes');
         }
 
-        return {
-            statusCode: 200,
-            body: JSON.stringify({ quizzes: quizzes || [] })
-        };
+        return createSuccessResponse({ quizzes: quizzes || [] });
     } catch (err) {
         console.error('Error:', err);
-        return {
-            statusCode: 500,
-            body: JSON.stringify({ error: 'Internal server error' })
-        };
+        return createErrorResponse(500, 'Internal server error');
     }
 };
