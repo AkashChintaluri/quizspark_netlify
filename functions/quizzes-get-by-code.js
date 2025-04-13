@@ -34,7 +34,7 @@ exports.handler = async (event) => {
                 questions,
                 due_date,
                 created_at,
-                teacher_login (
+                teacher_login!inner (
                     id,
                     username,
                     email

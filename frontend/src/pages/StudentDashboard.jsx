@@ -92,21 +92,23 @@ function StudentDashboard() {
 
     useEffect(() => {
         const fetchQuiz = async () => {
-            if (!quizCode) return;
+            if (!quizCode) {
+                console.log('No quiz code provided, skipping fetch');
+                return;
+            }
             
             try {
-                setLoading(true);
-                setError('');
-                console.log('Fetching quiz with code:', quizCode);
+                console.log('Starting quiz fetch for code:', quizCode);
                 const response = await axios.post(`${API_BASE_URL}/quizzes-get-by-code`, {
                     quiz_code: quizCode
                 });
-                console.log('Quiz response:', response.data);
+                console.log('Raw quiz response:', response);
+                console.log('Quiz response data:', response.data);
                 
                 if (response.data?.quiz) {
                     const quizData = response.data.quiz;
-                    console.log('Transformed quiz data:', quizData);
-                    setCurrentQuiz({
+                    console.log('Raw quiz data:', quizData);
+                    const transformedQuiz = {
                         id: quizData.quiz_id,
                         name: quizData.quiz_name,
                         code: quizData.quiz_code,
@@ -115,15 +117,15 @@ function StudentDashboard() {
                         teacher: quizData.teacher,
                         totalAttempts: quizData.total_attempts,
                         averageScore: quizData.average_score
-                    });
+                    };
+                    console.log('Transformed quiz data:', transformedQuiz);
+                    setCurrentQuiz(transformedQuiz);
                 } else {
-                    setError('Quiz not found');
+                    console.log('No quiz data found in response');
                 }
             } catch (err) {
                 console.error('Error fetching quiz:', err);
-                setError('Failed to load quiz');
-            } finally {
-                setLoading(false);
+                console.error('Error details:', err.response?.data);
             }
         };
 
