@@ -156,25 +156,29 @@ function StudentDashboard() {
 
     const handleSubmitQuiz = async () => {
         try {
+            // Transform selectedAnswers into the format expected by the backend
+            const answersObject = {};
+            Object.entries(answers).forEach(([questionIndex, optionIndex]) => {
+                answersObject[questionIndex] = optionIndex;
+            });
+
             const response = await axios.post(`${API_BASE_URL}/submit-quiz`, {
                 quiz_id: currentQuiz.id,
                 student_id: currentUser.id,
-                answers: answers,
-                time_taken: timeLeft
+                answers: answersObject
             });
             
             if (response.data.success) {
                 setIsSubmitted(true);
-                setScore(response.data.score);
-                // Refresh quizzes list
-                const quizzesResponse = await axios.get(`${API_BASE_URL}/upcoming-quizzes?student_id=${currentUser.id}`);
-                if (quizzesResponse.data?.quizzes) {
-                    setQuizzes(quizzesResponse.data.quizzes.map(transformQuizData));
-                }
+                setScore(response.data.attempt.score);
+                // Redirect to results page after 3 seconds
+                setTimeout(() => {
+                    navigate(`/student-dashboard/quiz/${quizCode}`);
+                }, 3000);
             }
         } catch (err) {
             console.error('Error submitting quiz:', err);
-            setError('Failed to submit quiz');
+            alert(err.response?.data?.error || 'Failed to submit quiz. Please try again.');
         }
     };
 
@@ -520,16 +524,21 @@ function TakeQuizContent({ currentUser, quizCode, currentQuiz, loading, error })
 
     const handleSubmitQuiz = async () => {
         try {
+            // Transform selectedAnswers into the format expected by the backend
+            const answersObject = {};
+            Object.entries(selectedAnswers).forEach(([questionIndex, optionIndex]) => {
+                answersObject[questionIndex] = optionIndex;
+            });
+
             const response = await axios.post(`${API_BASE_URL}/submit-quiz`, {
                 quiz_id: currentQuiz.id,
                 student_id: currentUser.id,
-                answers: selectedAnswers,
-                time_taken: timeLeft
+                answers: answersObject
             });
             
             if (response.data.success) {
                 setIsSubmitted(true);
-                setScore(response.data.score);
+                setScore(response.data.attempt.score);
                 // Redirect to results page after 3 seconds
                 setTimeout(() => {
                     navigate(`/student-dashboard/quiz/${quizCode}`);
@@ -537,6 +546,7 @@ function TakeQuizContent({ currentUser, quizCode, currentQuiz, loading, error })
             }
         } catch (err) {
             console.error('Error submitting quiz:', err);
+            alert(err.response?.data?.error || 'Failed to submit quiz. Please try again.');
         }
     };
 

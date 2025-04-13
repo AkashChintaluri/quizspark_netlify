@@ -11,10 +11,10 @@ exports.handler = async (event) => {
     }
 
     try {
-        const { quiz_code, user_id, answers, time_taken } = JSON.parse(event.body);
+        const { quiz_id, student_id, answers } = JSON.parse(event.body);
 
         // Validate input
-        if (!quiz_code || !user_id || !answers) {
+        if (!quiz_id || !student_id || !answers) {
             return createErrorResponse(400, 'Missing required fields');
         }
 
@@ -22,7 +22,7 @@ exports.handler = async (event) => {
         const { data: quiz, error: quizError } = await supabase
             .from('quizzes')
             .select('questions, due_date')
-            .eq('id', quiz_code)
+            .eq('quiz_id', quiz_id)
             .single();
 
         if (quizError || !quiz) {
@@ -38,9 +38,9 @@ exports.handler = async (event) => {
         // Check if student has already attempted this quiz
         const { data: existingAttempt, error: attemptError } = await supabase
             .from('quiz_attempts')
-            .select('id')
-            .eq('quiz_id', quiz_code)
-            .eq('student_id', user_id)
+            .select('attempt_id')
+            .eq('quiz_id', quiz_id)
+            .eq('user_id', student_id)
             .single();
 
         if (attemptError && attemptError.code !== 'PGRST116') {
@@ -54,35 +54,32 @@ exports.handler = async (event) => {
 
         // Calculate score
         const questions = quiz.questions.questions;
-        if (answers.length !== questions.length) {
+        if (Object.keys(answers).length !== questions.length) {
             return createErrorResponse(400, 'Number of answers does not match number of questions');
         }
 
         let correctAnswers = 0;
-        const detailedResults = answers.map((answer, index) => {
-            const question = questions[index];
-            const isCorrect = answer.toLowerCase() === question.correct_answer.toLowerCase();
-            if (isCorrect) correctAnswers++;
-            return {
-                question_number: index + 1,
-                your_answer: answer,
-                correct_answer: question.correct_answer,
-                is_correct: isCorrect
-            };
+        Object.entries(answers).forEach(([questionIndex, selectedOptionIndex]) => {
+            const question = questions[questionIndex];
+            const selectedOption = question.options[selectedOptionIndex];
+            if (selectedOption.is_correct) {
+                correctAnswers++;
+            }
         });
 
-        const score = (correctAnswers / questions.length) * 100;
+        const score = Math.round((correctAnswers / questions.length) * 100);
 
         // Save attempt
         const { data: attempt, error: saveError } = await supabase
             .from('quiz_attempts')
             .insert([
                 {
-                    quiz_id: quiz_code,
-                    student_id: user_id,
-                    score,
-                    answers: { answers },
-                    completed_at: new Date().toISOString()
+                    quiz_id: quiz_id,
+                    user_id: student_id,
+                    score: score,
+                    answers: answers,
+                    attempt_date: new Date().toISOString(),
+                    is_completed: true
                 }
             ])
             .select()
@@ -96,15 +93,13 @@ exports.handler = async (event) => {
         return createSuccessResponse({
             message: 'Quiz submitted successfully',
             attempt: {
-                id: attempt.id,
-                score,
-                completed_at: attempt.completed_at,
-                results: detailedResults
+                id: attempt.attempt_id,
+                score: score,
+                total_questions: questions.length
             }
         });
-
     } catch (error) {
-        console.error('Quiz submission error:', error);
-        return createErrorResponse(500, 'Internal server error', error.message);
+        console.error('Error submitting quiz:', error);
+        return createErrorResponse(500, 'Internal server error');
     }
 };
