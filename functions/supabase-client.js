@@ -1,8 +1,11 @@
 const { createClient } = require('@supabase/supabase-js');
 
-// Initialize Supabase client
-const supabaseUrl = 'https://hntrpejpiboxnlbzrbbc.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhudHJwZWpwaWJveG5sYnpyYmJjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0MzI0MDg1MywiZXhwIjoyMDU4ODE2ODUzfQ.1ZCETVyCJaxcC-fqabKqrjWUESRagY9x0TcOgNTp0tI';
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+    throw new Error('Missing Supabase credentials');
+}
 
 // Create and export the Supabase client
 const supabase = createClient(supabaseUrl, supabaseKey);
@@ -17,24 +20,35 @@ const commonHeaders = {
 // Helper function to handle CORS preflight requests
 const handleCors = () => ({
     statusCode: 200,
-    headers: commonHeaders
+    headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS'
+    },
+    body: ''
 });
 
 // Helper function to create error response
 const createErrorResponse = (statusCode, message, details = null) => ({
     statusCode,
-    headers: commonHeaders,
+    headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Content-Type': 'application/json'
+    },
     body: JSON.stringify({
         success: false,
         error: message,
-        ...(details && { details })
+        details
     })
 });
 
 // Helper function to create success response
 const createSuccessResponse = (data) => ({
     statusCode: 200,
-    headers: commonHeaders,
+    headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Content-Type': 'application/json'
+    },
     body: JSON.stringify({
         success: true,
         ...data

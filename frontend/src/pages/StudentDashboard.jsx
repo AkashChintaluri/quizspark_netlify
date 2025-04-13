@@ -8,6 +8,7 @@ import axios from 'axios';
 import './StudentDashboard.css';
 import './TakeQuiz.css';
 import TeacherList from './TeacherList';
+import { useAuth } from '../contexts/AuthContext';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
@@ -73,13 +74,15 @@ function StudentDashboard() {
         const fetchQuizzes = async () => {
             try {
                 setLoading(true);
-                const response = await axios.get(`${API_BASE_URL}/upcoming-quizzes?student_id=${currentUser.id}`);
-                if (response.data?.quizzes) {
-                    setQuizzes(response.data.quizzes);
+                const response = await axios.get(`/api/student-quizzes?student_id=${currentUser.id}`);
+                if (response.data.success) {
+                    setQuizzes(response.data.upcomingQuizzes);
+                } else {
+                    setError('Failed to fetch quizzes');
                 }
             } catch (err) {
                 console.error('Error fetching quizzes:', err);
-                setError('Failed to load quizzes');
+                setError('Failed to fetch quizzes');
             } finally {
                 setLoading(false);
             }
@@ -88,7 +91,7 @@ function StudentDashboard() {
         if (currentUser?.id) {
             fetchQuizzes();
         }
-    }, [currentUser?.id]);
+    }, [currentUser]);
 
     useEffect(() => {
         const fetchQuiz = async () => {
@@ -162,51 +165,32 @@ function StudentDashboard() {
         }));
     };
 
-    const handleSubmitQuiz = async () => {
+    const handleSubmitQuiz = async (quizId, answers) => {
         try {
-            // Transform selectedAnswers into the format expected by the backend
-            const answersObject = {};
-            let correctAnswers = 0;
-            
-            Object.entries(answers).forEach(([questionIndex, optionIndex]) => {
-                answersObject[questionIndex] = optionIndex;
-                // Check if the selected option is correct
-                if (currentQuiz.questions[questionIndex].options[optionIndex].isCorrect) {
-                    correctAnswers++;
-                }
+            const response = await axios.post('/api/submit-quiz', {
+                quiz_id: quizId,
+                student_id: currentUser.id,
+                answers
             });
 
-            const response = await axios.post(`${API_BASE_URL}/submit-quiz`, {
-                quiz_id: currentQuiz.quiz_id,
-                student_id: currentUser.id,
-                answers: answersObject,
-                total_questions: currentQuiz.questions.length,
-                correct_answers: correctAnswers
-            });
-            
             if (response.data.success) {
-                // Get the quiz code from the current URL
-                const pathname = location.pathname;
-                const quizCodeMatch = pathname.match(/\/student-dashboard\/take-quiz\/([^/]+)/);
-                const quizCode = quizCodeMatch ? quizCodeMatch[1] : null;
-                
-                if (quizCode) {
-                    // Navigate to the results page with the correct quiz code
-                    navigate(`/student-dashboard/quiz/${quizCode}`, { replace: true });
-                } else {
-                    console.error('No quiz code found in URL');
-                    navigate('/student-dashboard/results');
+                // Refresh quizzes after submission
+                const newResponse = await axios.get(`/api/student-quizzes?student_id=${currentUser.id}`);
+                if (newResponse.data.success) {
+                    setQuizzes(newResponse.data.upcomingQuizzes);
                 }
                 
-                // Refresh the upcoming quizzes list
-                const upcomingResponse = await axios.get(`${API_BASE_URL}/upcoming-quizzes?student_id=${currentUser.id}`);
-                if (upcomingResponse.data?.quizzes) {
-                    setQuizzes(upcomingResponse.data.quizzes);
+                // Navigate to results page
+                const quizCode = quizzes.find(q => q.quiz_id === quizId)?.quiz_code;
+                if (quizCode) {
+                    navigate(`/student-dashboard/quiz-results/${quizCode}`);
+                } else {
+                    navigate('/student-dashboard/quiz-results');
                 }
             }
         } catch (err) {
             console.error('Error submitting quiz:', err);
-            alert(err.response?.data?.error || 'Failed to submit quiz. Please try again.');
+            setError('Failed to submit quiz');
         }
     };
 
@@ -366,230 +350,111 @@ function Content({ activeTab, setActiveTab, currentUser, location, setCurrentUse
 }
 
 function HomeContent({ currentUser, setActiveTab }) {
+    const { user } = useAuth();
     const [upcomingQuizzes, setUpcomingQuizzes] = useState([]);
     const [attemptedQuizzes, setAttemptedQuizzes] = useState([]);
-    const [stats, setStats] = useState({
-        total_attempts: 0,
-        average_score: 0,
-        highest_score: {
-            score: 0,
-            quiz_name: '',
-            percentage: 0
-        }
-    });
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
+    const [error, setError] = useState(null);
     const navigate = useNavigate();
 
     useEffect(() => {
-        const fetchHomeData = async () => {
+        const fetchQuizzes = async () => {
             try {
                 setLoading(true);
-                setError('');
-                if (!currentUser?.id) {
-                    throw new Error('Invalid user session');
+                const response = await axios.get(`/api/student-quizzes?student_id=${user.id}`);
+                if (response.data.success) {
+                    setUpcomingQuizzes(response.data.upcomingQuizzes);
+                    setAttemptedQuizzes(response.data.attemptedQuizzes);
+                } else {
+                    setError('Failed to fetch quizzes');
                 }
-
-                const studentId = typeof currentUser.id === 'object' ? currentUser.id.toString() : currentUser.id;
-
-                const endpoints = [
-                    `${API_BASE_URL}/upcoming-quizzes?student_id=${studentId}`,
-                    `${API_BASE_URL}/attempted-quizzes?student_id=${studentId}`,
-                ];
-
-                const [upcomingResponse, attemptedResponse] = await Promise.all(
-                    endpoints.map((url) => axios.get(url))
-                );
-
-                // Transform quiz data to match frontend expectations
-                const transformQuizData = (quiz) => ({
-                    ...quiz,
-                    questions: quiz.questions?.questions || [],
-                    teacher_login: {
-                        id: quiz.created_by,
-                        username: quiz.teacher_login?.username || 'Unknown Teacher'
-                    }
-                });
-
-                const transformedAttemptedQuizzes = (attemptedResponse.data?.quizzes || []).map(transformQuizData);
-                const transformedUpcomingQuizzes = (upcomingResponse.data?.quizzes || []).map(transformQuizData);
-
-                // Filter out attempted quizzes from upcoming quizzes
-                const attemptedQuizIds = new Set(transformedAttemptedQuizzes.map(quiz => quiz.quiz_id));
-                const filteredUpcomingQuizzes = transformedUpcomingQuizzes.filter(quiz => !attemptedQuizIds.has(quiz.quiz_id));
-
-                setAttemptedQuizzes(transformedAttemptedQuizzes);
-                setUpcomingQuizzes(filteredUpcomingQuizzes);
-
-                // Calculate average score and find highest score
-                let totalScore = 0;
-                let highestScore = {
-                    score: 0,
-                    quiz_name: '',
-                    percentage: 0
-                };
-
-                transformedAttemptedQuizzes.forEach(quiz => {
-                    const percentage = Math.round((quiz.score / quiz.total_questions) * 100);
-                    totalScore += percentage;
-                    
-                    if (percentage > highestScore.percentage) {
-                        highestScore = {
-                            score: quiz.score,
-                            quiz_name: quiz.quiz_name,
-                            percentage: percentage
-                        };
-                    }
-                });
-
-                const averageScore = transformedAttemptedQuizzes.length > 0 
-                    ? Math.round(totalScore / transformedAttemptedQuizzes.length) 
-                    : 0;
-
-                // Set the stats with calculated values
-                setStats({
-                    total_attempts: transformedAttemptedQuizzes.length,
-                    average_score: averageScore,
-                    highest_score: highestScore
-                });
             } catch (err) {
-                setError('Failed to load dashboard data.');
-                console.error('Error fetching dashboard data:', err);
+                console.error('Error fetching quizzes:', err);
+                setError('Failed to fetch quizzes');
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchHomeData();
-    }, [currentUser]);
+        if (user?.id) {
+            fetchQuizzes();
+        }
+    }, [user]);
 
-    const handleQuizClick = (quizCode) => {
-        console.log('Quiz clicked with code:', quizCode);
-        navigate(`/student-dashboard/take-quiz/${quizCode}`, { replace: true });
-    };
+    const handleSubmitQuiz = async (quizId, answers) => {
+        try {
+            const response = await axios.post('/api/submit-quiz', {
+                quiz_id: quizId,
+                student_id: user.id,
+                answers
+            });
 
-    const handleAttemptedQuizClick = (quizCode) => {
-        navigate(`/student-dashboard/results/${quizCode}`);
+            if (response.data.success) {
+                // Refresh quizzes after submission
+                const newResponse = await axios.get(`/api/student-quizzes?student_id=${user.id}`);
+                if (newResponse.data.success) {
+                    setUpcomingQuizzes(newResponse.data.upcomingQuizzes);
+                    setAttemptedQuizzes(newResponse.data.attemptedQuizzes);
+                }
+                
+                // Navigate to results page
+                const quizCode = upcomingQuizzes.find(q => q.quiz_id === quizId)?.quiz_code;
+                if (quizCode) {
+                    navigate(`/student-dashboard/quiz-results/${quizCode}`);
+                } else {
+                    navigate('/student-dashboard/quiz-results');
+                }
+            }
+        } catch (err) {
+            console.error('Error submitting quiz:', err);
+            setError('Failed to submit quiz');
+        }
     };
 
     if (loading) {
-        return <div className="loading-screen">Loading dashboard...</div>;
+        return <div className="loading">Loading...</div>;
+    }
+
+    if (error) {
+        return <div className="error">{error}</div>;
     }
 
     return (
-        <div className="content home-content">
-            {error ? (
-                <div className="error-message">{error}</div>
-            ) : (
-                <>
-                    <div className="stats-section">
-                        <h3>Your Statistics</h3>
-                        <div className="stats-grid">
-                            <div className="stat-card">
-                                <h4>Total Attempts</h4>
-                                <p>{stats.total_attempts}</p>
-                            </div>
-                            <div className="stat-card">
-                                <h4>Average Score</h4>
-                                <p>{stats.average_score}%</p>
-                            </div>
-                            <div className="stat-card">
-                                <h4>Highest Score</h4>
-                                <p>{stats.highest_score.percentage}%</p>
-                                <span className="quiz-name">{stats.highest_score.quiz_name}</span>
-                            </div>
-                        </div>
+        <div className="dashboard-content">
+            <div className="quiz-section">
+                <h2>Upcoming Quizzes</h2>
+                {upcomingQuizzes.length === 0 ? (
+                    <p>No upcoming quizzes available</p>
+                ) : (
+                    <div className="quiz-grid">
+                        {upcomingQuizzes.map(quiz => (
+                            <QuizCard
+                                key={quiz.quiz_id}
+                                quiz={quiz}
+                                onStartQuiz={() => navigate(`/student-dashboard/take-quiz/${quiz.quiz_code}`)}
+                            />
+                        ))}
                     </div>
+                )}
+            </div>
 
-                    <div className="upcoming-quizzes">
-                        <h3>Upcoming Quizzes</h3>
-                        {!Array.isArray(upcomingQuizzes) || upcomingQuizzes.length === 0 ? (
-                            <p>No upcoming quizzes available.</p>
-                        ) : (
-                            <div className="quiz-list">
-                                {upcomingQuizzes.map((quiz) => (
-                                    <div
-                                        key={quiz.quiz_id}
-                                        className="quiz-card"
-                                        onClick={() => handleQuizClick(quiz.quiz_code)}
-                                    >
-                                        <div className="quiz-card-content">
-                                            <div className="quiz-header">
-                                                <h3>{quiz.quiz_name}</h3>
-                                                <span className="quiz-code">{quiz.quiz_code}</span>
-                                            </div>
-                                            <div className="quiz-details">
-                                                <div className="detail-item">
-                                                    <span className="label">Due Date</span>
-                                                    <span className="value">{new Date(quiz.due_date).toLocaleString('en-US', { 
-                                                        year: 'numeric', 
-                                                        month: 'short', 
-                                                        day: 'numeric',
-                                                        hour: '2-digit',
-                                                        minute: '2-digit',
-                                                        hour12: false
-                                                    })}</span>
-                                                </div>
-                                                <div className="detail-item">
-                                                    <span className="label">Teacher</span>
-                                                    <span className="value">{quiz.teacher_login?.username || 'Unknown'}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
+            <div className="quiz-section">
+                <h2>Attempted Quizzes</h2>
+                {attemptedQuizzes.length === 0 ? (
+                    <p>No attempted quizzes yet</p>
+                ) : (
+                    <div className="quiz-grid">
+                        {attemptedQuizzes.map(quiz => (
+                            <QuizCard
+                                key={quiz.quiz_id}
+                                quiz={quiz}
+                                attempt={quiz.attempt}
+                                onViewResults={() => navigate(`/student-dashboard/quiz-results/${quiz.quiz_code}`)}
+                            />
+                        ))}
                     </div>
-
-                    <div className="attempted-quizzes">
-                        <h3>Attempted Quizzes</h3>
-                        {!Array.isArray(attemptedQuizzes) || attemptedQuizzes.length === 0 ? (
-                            <p>You have not attempted any quizzes yet.</p>
-                        ) : (
-                            <div className="quiz-list">
-                                {attemptedQuizzes.map((quiz) => (
-                                    <div
-                                        key={quiz.quiz_id}
-                                        className="quiz-card"
-                                        onClick={() => handleAttemptedQuizClick(quiz.quiz_code)}
-                                    >
-                                        <div className="quiz-card-content">
-                                            <div className="quiz-header">
-                                                <h3>{quiz.quiz_name}</h3>
-                                                <span className="quiz-code">{quiz.quiz_code}</span>
-                                            </div>
-                                            <div className="quiz-details">
-                                                <div className="detail-item">
-                                                    <span className="label">Score</span>
-                                                    <span className="value">{Math.round((quiz.score / quiz.total_questions) * 100)}%</span>
-                                                </div>
-                                                <div className="detail-item">
-                                                    <span className="label">Teacher</span>
-                                                    <span className="value">{quiz.teacher_login?.username || 'Unknown'}</span>
-                                                </div>
-                                                <div className="detail-item">
-                                                    <span className="label">Completed</span>
-                                                    <span className="value">{new Date(quiz.attempt_date).toLocaleString('en-US', { 
-                                                        year: 'numeric', 
-                                                        month: 'short', 
-                                                        day: 'numeric',
-                                                        hour: '2-digit',
-                                                        minute: '2-digit',
-                                                        hour12: false
-                                                    })}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-
-                    <TeacherList studentId={currentUser?.id} />
-                </>
-            )}
+                )}
+            </div>
         </div>
     );
 }

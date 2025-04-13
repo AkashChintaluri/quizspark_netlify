@@ -13,93 +13,88 @@ exports.handler = async (event) => {
     try {
         const { quiz_id, student_id, answers } = JSON.parse(event.body);
 
-        // Validate input
         if (!quiz_id || !student_id || !answers) {
             return createErrorResponse(400, 'Missing required fields');
         }
 
-        // Get quiz details and check if it's still active
+        // Get quiz details
         const { data: quiz, error: quizError } = await supabase
             .from('quizzes')
-            .select('questions, due_date')
+            .select('*')
             .eq('quiz_id', quiz_id)
             .single();
 
-        if (quizError || !quiz) {
+        if (quizError) {
+            console.error('Error fetching quiz:', quizError);
+            return createErrorResponse(500, 'Failed to fetch quiz details');
+        }
+
+        if (!quiz) {
             return createErrorResponse(404, 'Quiz not found');
         }
 
-        const now = new Date();
-        const dueDate = new Date(quiz.due_date);
-        if (now > dueDate) {
-            return createErrorResponse(403, 'Quiz has expired');
+        // Check if quiz is expired
+        if (new Date(quiz.due_date) < new Date()) {
+            return createErrorResponse(400, 'Quiz has expired');
         }
 
-        // Check if student has already attempted this quiz
+        // Check if student has already attempted
         const { data: existingAttempt, error: attemptError } = await supabase
             .from('quiz_attempts')
-            .select('attempt_id')
+            .select('*')
             .eq('quiz_id', quiz_id)
             .eq('user_id', student_id)
             .single();
 
-        if (attemptError && attemptError.code !== 'PGRST116') {
-            console.error('Attempt check error:', attemptError);
-            return createErrorResponse(500, 'Failed to check existing attempts');
+        if (attemptError && attemptError.code !== 'PGRST116') { // PGRST116 is "not found" error
+            console.error('Error checking existing attempt:', attemptError);
+            return createErrorResponse(500, 'Failed to check existing attempt');
         }
 
         if (existingAttempt) {
-            return createErrorResponse(403, 'You have already attempted this quiz');
+            return createErrorResponse(400, 'You have already attempted this quiz');
         }
 
         // Calculate score
         const questions = quiz.questions.questions;
-        if (Object.keys(answers).length !== questions.length) {
-            return createErrorResponse(400, 'Number of answers does not match number of questions');
-        }
-
+        const totalQuestions = questions.length;
         let correctAnswers = 0;
-        Object.entries(answers).forEach(([questionIndex, selectedOptionIndex]) => {
-            const question = questions[questionIndex];
-            const selectedOption = question.options[selectedOptionIndex];
-            if (selectedOption.is_correct) {
+
+        // Compare each answer
+        Object.entries(answers).forEach(([questionIndex, selectedOption]) => {
+            const question = questions[parseInt(questionIndex)];
+            if (question && question.options[selectedOption]?.is_correct) {
                 correctAnswers++;
             }
         });
 
-        const score = Math.round((correctAnswers / questions.length) * 100);
-
         // Save attempt
         const { data: attempt, error: saveError } = await supabase
             .from('quiz_attempts')
-            .insert([
-                {
-                    quiz_id: quiz_id,
-                    user_id: student_id,
-                    score: score,
-                    answers: answers,
-                    attempt_date: new Date().toISOString(),
-                    is_completed: true
-                }
-            ])
+            .insert({
+                quiz_id,
+                user_id: student_id,
+                score: correctAnswers,
+                total_questions: totalQuestions,
+                answers,
+                is_completed: true
+            })
             .select()
             .single();
 
         if (saveError) {
-            console.error('Save attempt error:', saveError);
+            console.error('Error saving attempt:', saveError);
             return createErrorResponse(500, 'Failed to save quiz attempt');
         }
 
         return createSuccessResponse({
-            message: 'Quiz submitted successfully',
-            attempt: {
-                id: attempt.attempt_id,
-                score: score,
-                total_questions: questions.length
-            }
+            success: true,
+            score: correctAnswers,
+            totalQuestions,
+            attempt
         });
-    } catch (error) {
-        console.error('Error submitting quiz:', error);
-        return createErrorResponse(500, 'Internal server error');
+    } catch (err) {
+        console.error('Error in submit-quiz handler:', err);
+        return createErrorResponse(500, 'Internal server error', err.message);
     }
 };
