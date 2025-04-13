@@ -103,14 +103,18 @@ function StudentDashboard() {
                 });
                 console.log('Quiz response:', response.data);
                 
-                if (response.data) {
-                    setQuizData({
-                        ...response.data,
-                        questions: response.data.questions?.questions || [],
-                        teacher_login: {
-                            id: response.data.created_by,
-                            username: response.data.teacher_login?.username || 'Unknown Teacher'
-                        }
+                if (response.data?.quiz) {
+                    const quizData = response.data.quiz;
+                    console.log('Transformed quiz data:', quizData);
+                    setCurrentQuiz({
+                        id: quizData.quiz_id,
+                        name: quizData.quiz_name,
+                        code: quizData.quiz_code,
+                        questions: quizData.questions?.questions || [],
+                        dueDate: quizData.due_date,
+                        teacher: quizData.teacher,
+                        totalAttempts: quizData.total_attempts,
+                        averageScore: quizData.average_score
                     });
                 } else {
                     setError('Quiz not found');
@@ -234,7 +238,7 @@ function Content({ activeTab, setActiveTab, currentUser, location, setCurrentUse
     if (pathname.includes('/take-quiz/')) {
         const code = pathname.split('/take-quiz/')[1];
         console.log('Rendering TakeQuizContent with code:', code);
-        return <TakeQuizContent currentUser={currentUser} quizCode={code} />;
+        return <TakeQuizContent currentUser={currentUser} quizCode={code} currentQuiz={currentQuiz} />;
     }
 
     if (pathname.includes('/quiz/')) {
@@ -434,59 +438,15 @@ function HomeContent({ currentUser, setActiveTab }) {
     );
 }
 
-function TakeQuizContent({ currentUser, quizCode }) {
-    const [quizData, setQuizData] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
+function TakeQuizContent({ currentUser, quizCode, currentQuiz }) {
     const [selectedAnswers, setSelectedAnswers] = useState({});
     const [timeLeft, setTimeLeft] = useState(30 * 60); // 30 minutes in seconds
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [score, setScore] = useState(0);
     const navigate = useNavigate();
+    const [error, setError] = useState('');
 
-    console.log('TakeQuizContent rendering with quizCode:', quizCode);
-
-    useEffect(() => {
-        const fetchQuiz = async () => {
-            if (!quizCode) {
-                console.log('No quiz code provided');
-                return;
-            }
-            
-            try {
-                setLoading(true);
-                setError('');
-                console.log('Fetching quiz with code:', quizCode);
-                const response = await axios.post(`${API_BASE_URL}/quizzes-get-by-code`, {
-                    quiz_code: quizCode
-                });
-                console.log('Quiz response:', response.data);
-                
-                if (response.data) {
-                    const transformedQuiz = {
-                        ...response.data,
-                        questions: response.data.questions?.questions || [],
-                        teacher_login: {
-                            id: response.data.created_by,
-                            username: response.data.teacher_login?.username || 'Unknown Teacher'
-                        }
-                    };
-                    console.log('Transformed quiz data:', transformedQuiz);
-                    setQuizData(transformedQuiz);
-                } else {
-                    console.log('No quiz data received');
-                    setError('Quiz not found');
-                }
-            } catch (err) {
-                console.error('Error fetching quiz:', err);
-                setError('Failed to load quiz');
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchQuiz();
-    }, [quizCode]);
+    console.log('TakeQuizContent rendering with quiz:', currentQuiz);
 
     const handleAnswerChange = (questionIndex, optionIndex) => {
         setSelectedAnswers(prev => ({
@@ -498,7 +458,7 @@ function TakeQuizContent({ currentUser, quizCode }) {
     const handleSubmitQuiz = async () => {
         try {
             const response = await axios.post(`${API_BASE_URL}/submit-quiz`, {
-                quiz_id: quizData.quiz_id,
+                quiz_id: currentQuiz.id,
                 student_id: currentUser.id,
                 answers: selectedAnswers,
                 time_taken: timeLeft
@@ -541,15 +501,7 @@ function TakeQuizContent({ currentUser, quizCode }) {
         );
     }
 
-    if (loading) {
-        return <div className="loading">Loading quiz...</div>;
-    }
-
-    if (error) {
-        return <div className="error-message">{error}</div>;
-    }
-
-    if (!quizData) {
+    if (!currentQuiz) {
         return <div className="error-message">Quiz not found</div>;
     }
 
@@ -557,7 +509,7 @@ function TakeQuizContent({ currentUser, quizCode }) {
         return (
             <div className="quiz-submitted">
                 <h2>Quiz Submitted!</h2>
-                <p>Your score: {score}/{quizData.questions.length}</p>
+                <p>Your score: {score}/{currentQuiz.questions.length}</p>
                 <p>Redirecting to results...</p>
             </div>
         );
@@ -566,15 +518,15 @@ function TakeQuizContent({ currentUser, quizCode }) {
     return (
         <div className="take-quiz">
             <div className="quiz-header">
-                <h2>{quizData.quiz_name}</h2>
+                <h2>{currentQuiz.name}</h2>
                 <div className="quiz-info">
-                    <span>Code: {quizData.quiz_code}</span>
+                    <span>Code: {currentQuiz.code}</span>
                     <span>Time Left: {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}</span>
                 </div>
             </div>
             
             <div className="questions-container">
-                {quizData.questions.map((question, index) => (
+                {currentQuiz.questions.map((question, index) => (
                     <div key={index} className="question-card">
                         <h3>Question {index + 1}</h3>
                         <p>{question.question_text}</p>
@@ -594,14 +546,12 @@ function TakeQuizContent({ currentUser, quizCode }) {
                     </div>
                 ))}
             </div>
-
-            <button 
-                className="submit-quiz-btn"
-                onClick={handleSubmitQuiz}
-                disabled={Object.keys(selectedAnswers).length !== quizData.questions.length}
-            >
-                Submit Quiz
-            </button>
+            
+            <div className="quiz-footer">
+                <button onClick={handleSubmitQuiz} disabled={isSubmitted}>
+                    Submit Quiz
+                </button>
+            </div>
         </div>
     );
 }
