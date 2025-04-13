@@ -1,47 +1,37 @@
 const { createClient } = require('@supabase/supabase-js');
+const { 
+    supabase, 
+    handleCors, 
+    createErrorResponse, 
+    createSuccessResponse 
+} = require('./supabase-client');
 
 // Initialize Supabase client
 const supabaseUrl = 'https://hntrpejpiboxnlbzrbbc.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhudHJwZWpwaWJveG5sYnpyYmJjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0MzI0MDg1MywiZXhwIjoyMDU4ODE2ODUzfQ.1ZCETVyCJaxcC-fqabKqrjWUESRagY9x0TcOgNTp0tI';
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabaseClient = createClient(supabaseUrl, supabaseKey);
 
 exports.handler = async (event) => {
-    // CORS headers
-    const headers = {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type',
-        'Content-Type': 'application/json'
-    };
-
-    // Handle preflight requests
     if (event.httpMethod === 'OPTIONS') {
-        return {
-            statusCode: 200,
-            headers
-        };
+        return handleCors();
     }
 
     try {
-        const { username, password } = JSON.parse(event.body);
+        const { username, password, userType } = JSON.parse(event.body);
 
         // Validate input
-        if (!username || !password) {
-            return createErrorResponse(400, 'Missing username or password');
+        if (!username || !password || !userType) {
+            return createErrorResponse(400, 'Missing required fields');
         }
 
         const validTypes = ['student', 'teacher'];
-        const userType = validTypes.includes(username.split('_')[0]) ? username.split('_')[0] : null;
-        if (!userType) {
-            return {
-                statusCode: 400,
-                headers,
-                body: JSON.stringify({ error: 'Invalid user type' })
-            };
+        if (!validTypes.includes(userType)) {
+            return createErrorResponse(400, 'Invalid user type');
         }
 
         // Query the appropriate table based on userType
         const table = `${userType}_login`;
-        const { data, error } = await supabase
+        const { data, error } = await supabaseClient
             .from(table)
             .select('id, username, email, password')
             .eq('username', username)
@@ -50,61 +40,30 @@ exports.handler = async (event) => {
 
         if (error) {
             console.error('Database query error:', error);
-            return {
-                statusCode: 500,
-                headers,
-                body: JSON.stringify({ 
-                    error: 'Database query failed',
-                    details: error.message
-                })
-            };
+            return createErrorResponse(500, 'Database query failed', error.message);
         }
 
         if (!data) {
-            return {
-                statusCode: 401,
-                headers,
-                body: JSON.stringify({ 
-                    success: false, 
-                    message: 'Invalid credentials' 
-                })
-            };
+            return createErrorResponse(401, 'Invalid credentials');
         }
 
         // Compare passwords directly
         if (password !== data.password) {
-            return {
-                statusCode: 401,
-                headers,
-                body: JSON.stringify({ 
-                    success: false, 
-                    message: 'Invalid credentials' 
-                })
-            };
+            return createErrorResponse(401, 'Invalid credentials');
         }
 
         // Return success response
-        return {
-            statusCode: 200,
-            headers,
-            body: JSON.stringify({
-                success: true,
-                user: {
-                    id: data.id,
-                    username: data.username,
-                    email: data.email
-                }
-            })
-        };
+        return createSuccessResponse({
+            user: {
+                id: data.id,
+                username: data.username,
+                email: data.email,
+                userType
+            }
+        });
+
     } catch (error) {
-        console.error('Error:', error);
-        return {
-            statusCode: 500,
-            headers,
-            body: JSON.stringify({ 
-                error: 'Internal server error',
-                details: error.message
-            })
-        };
+        console.error('Login error:', error);
+        return createErrorResponse(500, 'Internal server error', error.message);
     }
 };
