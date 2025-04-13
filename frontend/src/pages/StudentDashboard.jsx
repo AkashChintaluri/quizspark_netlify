@@ -606,7 +606,10 @@ function TakeQuizContent({ currentUser, quizCode, currentQuiz, loading, error })
 
     return (
         <div className="content">
-            <h2 className="quiz-title">{currentQuiz.name}</h2>
+            <div className="quiz-title">
+                <span>{currentQuiz.name}</span>
+                <span>Quiz Code: {currentQuiz.code}</span>
+            </div>
             <div className="question-list">
                 {currentQuiz.questions.map((question, index) => (
                     <div key={index} className="question-card">
