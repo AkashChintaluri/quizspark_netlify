@@ -232,8 +232,42 @@ function Sidebar({ activeTab, currentUser, handleTabChange }) {
 function Content({ activeTab, setActiveTab, currentUser, location, setCurrentUser }) {
     const { pathname } = location;
     const { quizCode } = useParams();
+    const [currentQuiz, setCurrentQuiz] = useState(null);
 
-    console.log('Content rendering with:', { pathname, quizCode, activeTab });
+    useEffect(() => {
+        const fetchQuiz = async () => {
+            if (!quizCode) return;
+            
+            try {
+                console.log('Fetching quiz with code:', quizCode);
+                const response = await axios.post(`${API_BASE_URL}/quizzes-get-by-code`, {
+                    quiz_code: quizCode
+                });
+                console.log('Quiz response:', response.data);
+                
+                if (response.data?.quiz) {
+                    const quizData = response.data.quiz;
+                    console.log('Transformed quiz data:', quizData);
+                    setCurrentQuiz({
+                        id: quizData.quiz_id,
+                        name: quizData.quiz_name,
+                        code: quizData.quiz_code,
+                        questions: quizData.questions?.questions || [],
+                        dueDate: quizData.due_date,
+                        teacher: quizData.teacher,
+                        totalAttempts: quizData.total_attempts,
+                        averageScore: quizData.average_score
+                    });
+                }
+            } catch (err) {
+                console.error('Error fetching quiz:', err);
+            }
+        };
+
+        fetchQuiz();
+    }, [quizCode]);
+
+    console.log('Content rendering with:', { pathname, quizCode, activeTab, currentQuiz });
 
     if (pathname.includes('/take-quiz/')) {
         const code = pathname.split('/take-quiz/')[1];
