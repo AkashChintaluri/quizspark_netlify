@@ -371,16 +371,15 @@ function HomeContent({ currentUser, setActiveTab }) {
     const [stats, setStats] = useState({
         total_attempts: 0,
         average_score: 0,
-        completed_quizzes: 0
+        highest_score: {
+            score: 0,
+            quiz_name: '',
+            percentage: 0
+        }
     });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const navigate = useNavigate();
-
-    const handleQuizClick = (quizCode) => {
-        console.log('Quiz clicked with code:', quizCode);
-        navigate(`/student-dashboard/take-quiz/${quizCode}`, { replace: true });
-    };
 
     useEffect(() => {
         const fetchHomeData = async () => {
@@ -395,11 +394,10 @@ function HomeContent({ currentUser, setActiveTab }) {
 
                 const endpoints = [
                     `${API_BASE_URL}/upcoming-quizzes?student_id=${studentId}`,
-                    `${API_BASE_URL}/user-stats?student_id=${studentId}`,
                     `${API_BASE_URL}/attempted-quizzes?student_id=${studentId}`,
                 ];
 
-                const [upcomingResponse, statsResponse, attemptedResponse] = await Promise.all(
+                const [upcomingResponse, attemptedResponse] = await Promise.all(
                     endpoints.map((url) => axios.get(url))
                 );
 
@@ -413,17 +411,41 @@ function HomeContent({ currentUser, setActiveTab }) {
                     }
                 });
 
-                // Transform and set the data
+                const transformedAttemptedQuizzes = (attemptedResponse.data?.quizzes || []).map(transformQuizData);
+                setAttemptedQuizzes(transformedAttemptedQuizzes);
                 setUpcomingQuizzes((upcomingResponse.data?.quizzes || []).map(transformQuizData));
-                setAttemptedQuizzes((attemptedResponse.data?.quizzes || []).map(transformQuizData));
-                
-                // Ensure stats are properly formatted
-                const formattedStats = {
-                    total_attempts: statsResponse.data?.total_attempts || 0,
-                    average_score: statsResponse.data?.average_score || 0,
-                    completed_quizzes: statsResponse.data?.completed_quizzes || 0
+
+                // Calculate average score and find highest score
+                let totalScore = 0;
+                let highestScore = {
+                    score: 0,
+                    quiz_name: '',
+                    percentage: 0
                 };
-                setStats(formattedStats);
+
+                transformedAttemptedQuizzes.forEach(quiz => {
+                    const percentage = Math.round((quiz.score / quiz.total_questions) * 100);
+                    totalScore += percentage;
+                    
+                    if (percentage > highestScore.percentage) {
+                        highestScore = {
+                            score: quiz.score,
+                            quiz_name: quiz.quiz_name,
+                            percentage: percentage
+                        };
+                    }
+                });
+
+                const averageScore = transformedAttemptedQuizzes.length > 0 
+                    ? Math.round(totalScore / transformedAttemptedQuizzes.length) 
+                    : 0;
+
+                // Set the stats with calculated values
+                setStats({
+                    total_attempts: transformedAttemptedQuizzes.length,
+                    average_score: averageScore,
+                    highest_score: highestScore
+                });
             } catch (err) {
                 setError('Failed to load dashboard data.');
                 console.error('Error fetching dashboard data:', err);
@@ -435,8 +457,9 @@ function HomeContent({ currentUser, setActiveTab }) {
         fetchHomeData();
     }, [currentUser]);
 
-    const handleUpcomingQuizClick = (quizCode) => {
-        navigate(`/student-dashboard/take-quiz/${quizCode}`);
+    const handleQuizClick = (quizCode) => {
+        console.log('Quiz clicked with code:', quizCode);
+        navigate(`/student-dashboard/take-quiz/${quizCode}`, { replace: true });
     };
 
     const handleAttemptedQuizClick = (quizCode) => {
@@ -462,11 +485,12 @@ function HomeContent({ currentUser, setActiveTab }) {
                             </div>
                             <div className="stat-card">
                                 <h4>Average Score</h4>
-                                <p>{Math.round(stats.average_score)}%</p>
+                                <p>{stats.average_score}%</p>
                             </div>
                             <div className="stat-card">
-                                <h4>Completed Quizzes</h4>
-                                <p>{stats.completed_quizzes}</p>
+                                <h4>Highest Score</h4>
+                                <p>{stats.highest_score.percentage}%</p>
+                                <span className="quiz-name">{stats.highest_score.quiz_name}</span>
                             </div>
                         </div>
                     </div>
