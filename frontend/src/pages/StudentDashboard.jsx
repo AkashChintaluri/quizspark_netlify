@@ -158,19 +158,27 @@ function StudentDashboard() {
         try {
             // Transform selectedAnswers into the format expected by the backend
             const answersObject = {};
+            let correctAnswers = 0;
+            
             Object.entries(answers).forEach(([questionIndex, optionIndex]) => {
                 answersObject[questionIndex] = optionIndex;
+                // Check if the selected option is correct
+                if (currentQuiz.questions[questionIndex].options[optionIndex].isCorrect) {
+                    correctAnswers++;
+                }
             });
 
             const response = await axios.post(`${API_BASE_URL}/submit-quiz`, {
                 quiz_id: currentQuiz.id,
                 student_id: currentUser.id,
-                answers: answersObject
+                answers: answersObject,
+                total_questions: currentQuiz.questions.length,
+                correct_answers: correctAnswers
             });
             
             if (response.data.success) {
                 setIsSubmitted(true);
-                setScore(response.data.attempt.score);
+                setScore(correctAnswers);
                 // Redirect to results page after 3 seconds
                 setTimeout(() => {
                     navigate(`/student-dashboard/quiz/${quizCode}`);
@@ -245,55 +253,60 @@ function Content({ activeTab, setActiveTab, currentUser, location, setCurrentUse
     const { pathname } = location;
     const [currentQuiz, setCurrentQuiz] = useState(null);
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
+    const [error, setError] = useState(null);
+
+    // Extract quiz code from URL for both take-quiz and quiz results routes
+    const quizCodeMatch = pathname.match(/\/student-dashboard\/(?:take-quiz|quiz)\/([^/]+)/);
+    const quizCode = quizCodeMatch ? quizCodeMatch[1] : null;
 
     useEffect(() => {
         const fetchQuiz = async () => {
-            // Extract quiz code from URL
-            const quizCodeMatch = pathname.match(/\/take-quiz\/([^/]+)/);
-            const quizCode = quizCodeMatch ? quizCodeMatch[1] : null;
+            if (!quizCode) return;
             
-            if (!quizCode) {
-                console.log('No quiz code in URL');
-                return;
-            }
-            
+            setLoading(true);
+            setError(null);
             try {
-                setLoading(true);
-                setError('');
                 console.log('Fetching quiz with code:', quizCode);
-                const response = await axios.post(`${API_BASE_URL}/quizzes-get-by-code`, {
-                    quiz_code: quizCode
-                });
-                console.log('Quiz response:', response.data);
+                const response = await axios.post(`${API_BASE_URL}/quizzes-get-by-code`, { quiz_code: quizCode });
+                console.log('Raw API response:', response.data);
                 
                 if (response.data?.quiz) {
                     const quizData = response.data.quiz;
-                    console.log('Transformed quiz data:', quizData);
-                    setCurrentQuiz({
+                    console.log('Quiz data structure:', quizData);
+                    
+                    // Transform the quiz data to match the expected structure
+                    const transformedQuiz = {
                         id: quizData.quiz_id,
                         name: quizData.quiz_name,
                         code: quizData.quiz_code,
-                        questions: quizData.questions?.questions || [],
+                        creator: quizData.created_by,
+                        questions: quizData.questions.questions.map(q => ({
+                            text: q.question_text,
+                            options: q.options.map(opt => ({
+                                text: opt.text,
+                                isCorrect: opt.is_correct
+                            }))
+                        })),
                         dueDate: quizData.due_date,
-                        teacher: quizData.teacher,
-                        totalAttempts: quizData.total_attempts,
-                        averageScore: quizData.average_score
-                    });
+                        createdAt: quizData.created_at
+                    };
+                    
+                    console.log('Transformed quiz data:', transformedQuiz);
+                    setCurrentQuiz(transformedQuiz);
                 } else {
-                    console.log('No quiz data received');
+                    console.log('No quiz data found in response');
                     setError('Quiz not found');
                 }
             } catch (err) {
                 console.error('Error fetching quiz:', err);
-                setError('Failed to load quiz');
+                setError(err.response?.data?.error || 'Failed to fetch quiz');
             } finally {
                 setLoading(false);
             }
         };
 
         fetchQuiz();
-    }, [pathname]);
+    }, [quizCode]);
 
     console.log('Content rendering with:', { pathname, activeTab, currentQuiz, loading, error });
 
@@ -526,19 +539,27 @@ function TakeQuizContent({ currentUser, quizCode, currentQuiz, loading, error })
         try {
             // Transform selectedAnswers into the format expected by the backend
             const answersObject = {};
+            let correctAnswers = 0;
+            
             Object.entries(selectedAnswers).forEach(([questionIndex, optionIndex]) => {
                 answersObject[questionIndex] = optionIndex;
+                // Check if the selected option is correct
+                if (currentQuiz.questions[questionIndex].options[optionIndex].isCorrect) {
+                    correctAnswers++;
+                }
             });
 
             const response = await axios.post(`${API_BASE_URL}/submit-quiz`, {
                 quiz_id: currentQuiz.id,
                 student_id: currentUser.id,
-                answers: answersObject
+                answers: answersObject,
+                total_questions: currentQuiz.questions.length,
+                correct_answers: correctAnswers
             });
             
             if (response.data.success) {
                 setIsSubmitted(true);
-                setScore(response.data.attempt.score);
+                setScore(correctAnswers);
                 // Redirect to results page after 3 seconds
                 setTimeout(() => {
                     navigate(`/student-dashboard/quiz/${quizCode}`);
