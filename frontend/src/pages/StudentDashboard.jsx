@@ -97,7 +97,9 @@ function StudentDashboard() {
             try {
                 setLoading(true);
                 setError('');
-                const response = await axios.get(`${API_BASE_URL}/quiz?quizCode=${quizCode}`);
+                console.log('Fetching quiz with code:', quizCode);
+                const response = await axios.get(`${API_BASE_URL}/quizzes/${quizCode}`);
+                console.log('Quiz response:', response.data);
                 
                 if (response.data) {
                     setQuizData({
@@ -163,7 +165,11 @@ function StudentDashboard() {
     };
 
     if (loading) {
-        return <div className="loading-screen">Loading dashboard...</div>;
+        return (
+            <div className="loading-container">
+                <div className="loader"></div>
+            </div>
+        );
     }
 
     if (!currentUser) {
@@ -449,7 +455,7 @@ function TakeQuizContent({ currentUser, quizCode }) {
                 setLoading(true);
                 setError('');
                 console.log('Fetching quiz with code:', quizCode);
-                const response = await axios.get(`${API_BASE_URL}/quiz?quizCode=${quizCode}`);
+                const response = await axios.get(`${API_BASE_URL}/quizzes/${quizCode}`);
                 console.log('Quiz response:', response.data);
                 
                 if (response.data) {
