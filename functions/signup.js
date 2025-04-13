@@ -12,14 +12,10 @@ exports.handler = async (event) => {
     }
 
     try {
-        // Parse request body
-        const body = event.isBase64Encoded
-            ? Buffer.from(event.body, 'base64').toString('utf8')
-            : event.body;
-        const { username, email, password, userType } = JSON.parse(body);
+        const { username, password, userType } = JSON.parse(event.body);
 
         // Validate input
-        if (!username || !email || !password || !userType) {
+        if (!username || !password || !userType) {
             return createErrorResponse(400, 'Missing required fields');
         }
 
@@ -51,7 +47,6 @@ exports.handler = async (event) => {
             .insert([
                 {
                     username,
-                    email,
                     password: password
                 }
             ])

@@ -22,23 +22,16 @@ exports.handler = async (event) => {
     }
 
     try {
-        // Parse request body
-        const body = event.isBase64Encoded
-            ? Buffer.from(event.body, 'base64').toString('utf8')
-            : event.body;
-        const { username, password, userType } = JSON.parse(body);
+        const { username, password } = JSON.parse(event.body);
 
         // Validate input
-        if (!username || !password || !userType) {
-            return {
-                statusCode: 400,
-                headers,
-                body: JSON.stringify({ error: 'Missing required fields' })
-            };
+        if (!username || !password) {
+            return createErrorResponse(400, 'Missing username or password');
         }
 
         const validTypes = ['student', 'teacher'];
-        if (!validTypes.includes(userType)) {
+        const userType = validTypes.includes(username.split('_')[0]) ? username.split('_')[0] : null;
+        if (!userType) {
             return {
                 statusCode: 400,
                 headers,

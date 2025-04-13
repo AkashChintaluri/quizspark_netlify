@@ -21,18 +21,11 @@ exports.handler = async (event) => {
         const pathParts = event.path.split('/');
         const student_id = pathParts[pathParts.length - 1];
         
-        const body = event.isBase64Encoded
-            ? Buffer.from(event.body, 'base64').toString('utf8')
-            : event.body;
-        const { name, email } = JSON.parse(body);
+        const { id, username, email } = JSON.parse(event.body);
 
         // Validate input
-        if (!student_id) {
-            return createErrorResponse(400, 'student_id is required');
-        }
-
-        if (!name && !email) {
-            return createErrorResponse(400, 'At least one field (name or email) is required');
+        if (!id || !username || !email) {
+            return createErrorResponse(400, 'Missing required fields');
         }
 
         // Check if student exists
@@ -50,7 +43,7 @@ exports.handler = async (event) => {
         // Update student profile
         // Map frontend 'name' field to database 'username' field
         const updateData = {};
-        if (name) updateData.username = name;  // frontend 'name' maps to database 'username'
+        if (username) updateData.username = username;  // frontend 'name' maps to database 'username'
         if (email) updateData.email = email;   // email field name is the same in both
 
         const { data: updatedStudent, error: updateError } = await supabase

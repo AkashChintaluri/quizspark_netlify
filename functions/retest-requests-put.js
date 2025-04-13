@@ -11,15 +11,11 @@ exports.handler = async (event) => {
     }
 
     try {
-        const request_id = event.path.split('/').pop();
-        const body = event.isBase64Encoded
-            ? Buffer.from(event.body, 'base64').toString('utf8')
-            : event.body;
-        const { status, feedback } = JSON.parse(body);
+        const { request_id, status } = JSON.parse(event.body);
 
         // Validate input
         if (!request_id || !status) {
-            return createErrorResponse(400, 'request_id and status are required');
+            return createErrorResponse(400, 'Missing required fields');
         }
 
         // Check if request exists and is pending

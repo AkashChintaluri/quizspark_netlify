@@ -11,21 +11,18 @@ exports.handler = async (event) => {
     }
 
     try {
-        const body = event.isBase64Encoded
-            ? Buffer.from(event.body, 'base64').toString('utf8')
-            : event.body;
-        const { quiz_id, student_id, answers } = JSON.parse(body);
+        const { quiz_code, user_id, answers, time_taken } = JSON.parse(event.body);
 
         // Validate input
-        if (!quiz_id || !student_id || !answers || !Array.isArray(answers)) {
-            return createErrorResponse(400, 'Missing or invalid required fields');
+        if (!quiz_code || !user_id || !answers) {
+            return createErrorResponse(400, 'Missing required fields');
         }
 
         // Get quiz details and check if it's still active
         const { data: quiz, error: quizError } = await supabase
             .from('quizzes')
             .select('questions, due_date')
-            .eq('id', quiz_id)
+            .eq('id', quiz_code)
             .single();
 
         if (quizError || !quiz) {
@@ -42,8 +39,8 @@ exports.handler = async (event) => {
         const { data: existingAttempt, error: attemptError } = await supabase
             .from('quiz_attempts')
             .select('id')
-            .eq('quiz_id', quiz_id)
-            .eq('student_id', student_id)
+            .eq('quiz_id', quiz_code)
+            .eq('student_id', user_id)
             .single();
 
         if (attemptError && attemptError.code !== 'PGRST116') {
@@ -81,8 +78,8 @@ exports.handler = async (event) => {
             .from('quiz_attempts')
             .insert([
                 {
-                    quiz_id,
-                    student_id,
+                    quiz_id: quiz_code,
+                    student_id: user_id,
                     score,
                     answers: { answers },
                     completed_at: new Date().toISOString()

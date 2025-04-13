@@ -18,41 +18,58 @@ exports.handler = async (event) => {
             return createErrorResponse(400, 'student_id is required');
         }
 
-        // Get total quizzes attempted
-        const { data: attempts, error: attemptsError } = await supabase
+        // Get all quiz attempts for the student
+        const { data: attempts, error: attemptError } = await supabase
             .from('quiz_attempts')
-            .select('attempt_id, quiz_id, score, total_questions')
+            .select(`
+                attempt_id,
+                quiz_id,
+                score,
+                total_questions,
+                is_completed,
+                attempt_date
+            `)
             .eq('user_id', student_id)
-            .eq('is_completed', true);
+            .order('attempt_date', { ascending: false });
 
-        if (attemptsError) {
-            console.error('Error fetching quiz attempts:', attemptsError);
+        if (attemptError) {
+            console.error('Quiz attempts fetch error:', attemptError);
             return createErrorResponse(500, 'Failed to fetch quiz attempts');
         }
 
-        // Get unique teachers subscribed to
-        const { data: subscriptions, error: subsError } = await supabase
-            .from('subscriptions')
-            .select('teacher_id')
+        // Calculate statistics
+        const totalAttempts = attempts.length;
+        const completedAttempts = attempts.filter(a => a.is_completed).length;
+        const totalScore = attempts.reduce((sum, attempt) => sum + (attempt.score || 0), 0);
+        const totalQuestions = attempts.reduce((sum, attempt) => sum + (attempt.total_questions || 0), 0);
+        const averageScore = totalQuestions > 0 ? (totalScore / totalQuestions) * 100 : 0;
+
+        // Get retest requests
+        const { data: retestRequests, error: retestError } = await supabase
+            .from('retest_requests')
+            .select('request_id, status')
             .eq('student_id', student_id);
 
-        if (subsError) {
-            console.error('Error fetching subscriptions:', subsError);
-            return createErrorResponse(500, 'Failed to fetch subscriptions');
+        if (retestError) {
+            console.error('Retest requests fetch error:', retestError);
+            return createErrorResponse(500, 'Failed to fetch retest requests');
         }
 
-        // Calculate statistics
-        const totalQuizzes = attempts.length;
-        const totalTeachers = new Set(subscriptions.map(sub => sub.teacher_id)).size;
-        const totalScore = attempts.reduce((sum, attempt) => sum + attempt.score, 0);
-        const totalQuestions = attempts.reduce((sum, attempt) => sum + attempt.total_questions, 0);
-        const averageScore = totalQuizzes > 0 ? (totalScore / totalQuestions * 100).toFixed(2) : 0;
+        const pendingRetests = retestRequests.filter(r => r.status === 'pending').length;
 
         return createSuccessResponse({
-            total_attempts: totalQuizzes,
-            average_score: parseFloat(averageScore),
-            completed_quizzes: totalQuizzes,
-            total_teachers: totalTeachers
+            total_attempts: totalAttempts,
+            completed_attempts: completedAttempts,
+            average_score: Math.round(averageScore * 100) / 100,
+            pending_retests: pendingRetests,
+            recent_attempts: attempts.slice(0, 5).map(attempt => ({
+                attempt_id: attempt.attempt_id,
+                quiz_id: attempt.quiz_id,
+                score: attempt.score,
+                total_questions: attempt.total_questions,
+                is_completed: attempt.is_completed,
+                attempt_date: attempt.attempt_date
+            }))
         });
 
     } catch (error) {

@@ -11,13 +11,10 @@ exports.handler = async (event) => {
     }
 
     try {
-        const body = event.isBase64Encoded
-            ? Buffer.from(event.body, 'base64').toString('utf8')
-            : event.body;
-        const { quiz_name, teacher_id, questions, due_date } = JSON.parse(body);
+        const { quiz_name, questions, due_date, teacher_id } = JSON.parse(event.body);
 
         // Validate input
-        if (!quiz_name || !teacher_id || !questions || !due_date) {
+        if (!quiz_name || !questions || !due_date || !teacher_id) {
             return createErrorResponse(400, 'Missing required fields');
         }
 

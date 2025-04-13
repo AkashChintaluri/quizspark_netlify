@@ -11,21 +11,18 @@ exports.handler = async (event) => {
     }
 
     try {
-        const body = event.isBase64Encoded
-            ? Buffer.from(event.body, 'base64').toString('utf8')
-            : event.body;
-        const { teacher_id, name, email, bio } = JSON.parse(body);
+        const { id, username, email } = JSON.parse(event.body);
 
         // Validate input
-        if (!teacher_id) {
-            return createErrorResponse(400, 'teacher_id is required');
+        if (!id || !username || !email) {
+            return createErrorResponse(400, 'Missing required fields');
         }
 
         // Check if teacher exists
         const { data: teacher, error: teacherError } = await supabase
             .from('teachers')
             .select('id')
-            .eq('id', teacher_id)
+            .eq('id', id)
             .single();
 
         if (teacherError) {
@@ -35,14 +32,13 @@ exports.handler = async (event) => {
 
         // Update teacher profile
         const updateData = {};
-        if (name) updateData.name = name;
+        if (username) updateData.name = username;
         if (email) updateData.email = email;
-        if (bio) updateData.bio = bio;
 
         const { data: updatedTeacher, error: updateError } = await supabase
             .from('teachers')
             .update(updateData)
-            .eq('id', teacher_id)
+            .eq('id', id)
             .select()
             .single();
 

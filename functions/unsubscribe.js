@@ -11,14 +11,11 @@ exports.handler = async (event) => {
     }
 
     try {
-        const body = event.isBase64Encoded
-            ? Buffer.from(event.body, 'base64').toString('utf8')
-            : event.body;
-        const { student_id, teacher_id } = JSON.parse(body);
+        const { student_id, teacher_id } = JSON.parse(event.body);
 
         // Validate input
         if (!student_id || !teacher_id) {
-            return createErrorResponse(400, 'student_id and teacher_id are required');
+            return createErrorResponse(400, 'Missing required fields');
         }
 
         // Delete subscription

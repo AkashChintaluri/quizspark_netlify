@@ -11,13 +11,10 @@ exports.handler = async (event) => {
     }
 
     try {
-        const body = event.isBase64Encoded
-            ? Buffer.from(event.body, 'base64').toString('utf8')
-            : event.body;
-        const { quiz_id, quiz_name, questions, due_date, teacher_id } = JSON.parse(body);
+        const { id, quiz_name, questions, due_date } = JSON.parse(event.body);
 
         // Validate input
-        if (!quiz_id || !teacher_id) {
+        if (!id || !quiz_name || !questions || !due_date) {
             return createErrorResponse(400, 'Missing required fields');
         }
 
@@ -25,15 +22,11 @@ exports.handler = async (event) => {
         const { data: existingQuiz, error: verifyError } = await supabase
             .from('quizzes')
             .select('teacher_id')
-            .eq('id', quiz_id)
+            .eq('id', id)
             .single();
 
         if (verifyError || !existingQuiz) {
             return createErrorResponse(404, 'Quiz not found');
-        }
-
-        if (existingQuiz.teacher_id !== teacher_id) {
-            return createErrorResponse(403, 'Unauthorized to modify this quiz');
         }
 
         // Build update object with only provided fields
@@ -46,7 +39,7 @@ exports.handler = async (event) => {
         const { data: updatedQuiz, error: updateError } = await supabase
             .from('quizzes')
             .update(updateData)
-            .eq('id', quiz_id)
+            .eq('id', id)
             .select()
             .single();
 

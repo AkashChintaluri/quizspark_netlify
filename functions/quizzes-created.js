@@ -11,10 +11,7 @@ exports.handler = async (event) => {
     }
 
     try {
-        const body = event.isBase64Encoded
-            ? Buffer.from(event.body, 'base64').toString('utf8')
-            : event.body;
-        const { teacher_id } = JSON.parse(body);
+        const { teacher_id } = JSON.parse(event.body);
 
         // Validate input
         if (!teacher_id) {

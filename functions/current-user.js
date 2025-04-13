@@ -11,27 +11,24 @@ exports.handler = async (event) => {
     }
 
     try {
-        const body = event.isBase64Encoded
-            ? Buffer.from(event.body, 'base64').toString('utf8')
-            : event.body;
-        const { userId, userType } = JSON.parse(body);
+        const { user_id, user_type } = JSON.parse(event.body);
 
         // Validate input
-        if (!userId || !userType) {
-            return createErrorResponse(400, 'Missing required fields');
+        if (!user_id || !user_type) {
+            return createErrorResponse(400, 'Missing user ID or type');
         }
 
         const validTypes = ['student', 'teacher'];
-        if (!validTypes.includes(userType)) {
+        if (!validTypes.includes(user_type)) {
             return createErrorResponse(400, 'Invalid user type');
         }
 
         // Get user details
-        const table = `${userType}_login`;
+        const table = `${user_type}_login`;
         const { data: user, error } = await supabase
             .from(table)
             .select('id, username, email')
-            .eq('id', userId)
+            .eq('id', user_id)
             .maybeSingle();
 
         if (error) {
@@ -46,12 +43,12 @@ exports.handler = async (event) => {
         // Get additional user stats based on type
         let additionalData = {};
         
-        if (userType === 'student') {
+        if (user_type === 'student') {
             // Get student's quiz attempts count and average score
             const { data: stats, error: statsError } = await supabase
                 .from('quiz_attempts')
                 .select('score')
-                .eq('student_id', userId);
+                .eq('student_id', user_id);
 
             if (!statsError && stats) {
                 const attempts = stats.length;
@@ -69,7 +66,7 @@ exports.handler = async (event) => {
             const { count, error: quizError } = await supabase
                 .from('quizzes')
                 .select('*', { count: 'exact', head: true })
-                .eq('teacher_id', userId);
+                .eq('teacher_id', user_id);
 
             if (!quizError) {
                 additionalData = {
@@ -81,7 +78,7 @@ exports.handler = async (event) => {
         return createSuccessResponse({
             user: {
                 ...user,
-                userType,
+                user_type,
                 ...additionalData
             }
         });

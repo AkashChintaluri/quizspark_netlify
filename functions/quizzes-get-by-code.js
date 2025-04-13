@@ -11,10 +11,7 @@ exports.handler = async (event) => {
     }
 
     try {
-        const body = event.isBase64Encoded
-            ? Buffer.from(event.body, 'base64').toString('utf8')
-            : event.body;
-        const { quiz_code } = JSON.parse(body);
+        const { quiz_code } = JSON.parse(event.body);
 
         // Validate input
         if (!quiz_code) {
