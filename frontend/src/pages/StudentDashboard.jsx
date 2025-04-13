@@ -8,7 +8,6 @@ import axios from 'axios';
 import './StudentDashboard.css';
 import './TakeQuiz.css';
 import TeacherList from './TeacherList';
-import { useAuth } from '../contexts/AuthContext';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
@@ -350,7 +349,6 @@ function Content({ activeTab, setActiveTab, currentUser, location, setCurrentUse
 }
 
 function HomeContent({ currentUser, setActiveTab }) {
-    const { user } = useAuth();
     const [upcomingQuizzes, setUpcomingQuizzes] = useState([]);
     const [attemptedQuizzes, setAttemptedQuizzes] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -361,7 +359,7 @@ function HomeContent({ currentUser, setActiveTab }) {
         const fetchQuizzes = async () => {
             try {
                 setLoading(true);
-                const response = await axios.get(`/api/student-quizzes?student_id=${user.id}`);
+                const response = await axios.get(`/api/student-quizzes?student_id=${currentUser.id}`);
                 if (response.data.success) {
                     setUpcomingQuizzes(response.data.upcomingQuizzes);
                     setAttemptedQuizzes(response.data.attemptedQuizzes);
@@ -376,22 +374,22 @@ function HomeContent({ currentUser, setActiveTab }) {
             }
         };
 
-        if (user?.id) {
+        if (currentUser?.id) {
             fetchQuizzes();
         }
-    }, [user]);
+    }, [currentUser]);
 
     const handleSubmitQuiz = async (quizId, answers) => {
         try {
             const response = await axios.post('/api/submit-quiz', {
                 quiz_id: quizId,
-                student_id: user.id,
+                student_id: currentUser.id,
                 answers
             });
 
             if (response.data.success) {
                 // Refresh quizzes after submission
-                const newResponse = await axios.get(`/api/student-quizzes?student_id=${user.id}`);
+                const newResponse = await axios.get(`/api/student-quizzes?student_id=${currentUser.id}`);
                 if (newResponse.data.success) {
                     setUpcomingQuizzes(newResponse.data.upcomingQuizzes);
                     setAttemptedQuizzes(newResponse.data.attemptedQuizzes);
