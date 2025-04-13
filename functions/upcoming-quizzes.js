@@ -23,6 +23,11 @@ exports.handler = async (event) => {
             .select('teacher_id')
             .eq('student_id', student_id);
 
+        // If no subscriptions found, return empty list instead of error
+        if (!subscriptions || subscriptions.length === 0) {
+            return createSuccessResponse({ quizzes: [] });
+        }
+
         if (subError) {
             console.error('Error fetching subscriptions:', subError);
             return createErrorResponse(500, 'Failed to fetch teacher subscriptions');
@@ -32,7 +37,7 @@ exports.handler = async (event) => {
         const { data: attempts, error: attemptsError } = await supabase
             .from('quiz_attempts')
             .select('quiz_id')
-            .eq('user_id', student_id); // Remove is_completed check to get all attempts
+            .eq('user_id', student_id);
 
         if (attemptsError) {
             console.error('Error fetching attempts:', attemptsError);
@@ -40,13 +45,8 @@ exports.handler = async (event) => {
         }
 
         // Get teacher IDs and attempted quiz IDs
-        const teacherIds = subscriptions?.map(sub => sub.teacher_id) || [];
+        const teacherIds = subscriptions.map(sub => sub.teacher_id);
         const attemptedQuizIds = attempts?.map(attempt => attempt.quiz_id) || [];
-
-        // If no subscriptions, return empty array
-        if (teacherIds.length === 0) {
-            return createSuccessResponse({ quizzes: [] });
-        }
 
         // Get quizzes that:
         // 1. Are created by subscribed teachers
