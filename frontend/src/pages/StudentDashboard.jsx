@@ -98,7 +98,9 @@ function StudentDashboard() {
                 setLoading(true);
                 setError('');
                 console.log('Fetching quiz with code:', quizCode);
-                const response = await axios.get(`${API_BASE_URL}/quizzes/${quizCode}`);
+                const response = await axios.post(`${API_BASE_URL}/quizzes-get-by-code`, {
+                    quiz_code: quizCode
+                });
                 console.log('Quiz response:', response.data);
                 
                 if (response.data) {
@@ -455,7 +457,9 @@ function TakeQuizContent({ currentUser, quizCode }) {
                 setLoading(true);
                 setError('');
                 console.log('Fetching quiz with code:', quizCode);
-                const response = await axios.get(`${API_BASE_URL}/quizzes/${quizCode}`);
+                const response = await axios.post(`${API_BASE_URL}/quizzes-get-by-code`, {
+                    quiz_code: quizCode
+                });
                 console.log('Quiz response:', response.data);
                 
                 if (response.data) {
