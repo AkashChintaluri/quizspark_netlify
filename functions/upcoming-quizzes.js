@@ -17,11 +17,42 @@ exports.handler = async (event) => {
             return createErrorResponse(400, 'Student ID is required');
         }
 
-        // Get all quizzes that:
-        // 1. Student is subscribed to (through teacher subscriptions)
-        // 2. Haven't been attempted by the student
-        // 3. Are not past their due date
-        const { data: quizzes, error } = await supabase
+        // First, get the teacher subscriptions
+        const { data: subscriptions, error: subError } = await supabase
+            .from('teacher_subscriptions')
+            .select('teacher_id')
+            .eq('student_id', student_id);
+
+        if (subError) {
+            console.error('Error fetching subscriptions:', subError);
+            return createErrorResponse(500, 'Failed to fetch teacher subscriptions');
+        }
+
+        // Get attempted quiz IDs - get all attempts regardless of completion status
+        const { data: attempts, error: attemptsError } = await supabase
+            .from('quiz_attempts')
+            .select('quiz_id')
+            .eq('user_id', student_id); // Remove is_completed check to get all attempts
+
+        if (attemptsError) {
+            console.error('Error fetching attempts:', attemptsError);
+            return createErrorResponse(500, 'Failed to fetch quiz attempts');
+        }
+
+        // Get teacher IDs and attempted quiz IDs
+        const teacherIds = subscriptions?.map(sub => sub.teacher_id) || [];
+        const attemptedQuizIds = attempts?.map(attempt => attempt.quiz_id) || [];
+
+        // If no subscriptions, return empty array
+        if (teacherIds.length === 0) {
+            return createSuccessResponse({ quizzes: [] });
+        }
+
+        // Get quizzes that:
+        // 1. Are created by subscribed teachers
+        // 2. Have not been attempted at all
+        // 3. Are not past due date
+        const { data: quizzes, error: quizError } = await supabase
             .from('quizzes')
             .select(`
                 quiz_id,
@@ -35,29 +66,33 @@ exports.handler = async (event) => {
                     username
                 )
             `)
-            .not('quiz_id', 'in', (
-                supabase
-                    .from('quiz_attempts')
-                    .select('quiz_id')
-                    .eq('user_id', student_id)
-            ))
-            .in('created_by', (
-                supabase
-                    .from('teacher_subscriptions')
-                    .select('teacher_id')
-                    .eq('student_id', student_id)
-            ))
+            .in('created_by', teacherIds)
+            .not('quiz_id', 'in', attemptedQuizIds)
             .gt('due_date', new Date().toISOString())
             .order('created_at', { ascending: false });
 
-        if (error) {
-            console.error('Error fetching quizzes:', error);
+        if (quizError) {
+            console.error('Error fetching quizzes:', quizError);
             return createErrorResponse(500, 'Failed to fetch quizzes');
         }
 
-        return createSuccessResponse({ quizzes: quizzes || [] });
+        // Transform the response to match the expected format
+        const transformedQuizzes = (quizzes || []).map(quiz => ({
+            quiz_id: quiz.quiz_id,
+            quiz_name: quiz.quiz_name,
+            quiz_code: quiz.quiz_code,
+            created_by: quiz.created_by,
+            questions: quiz.questions,
+            due_date: quiz.due_date,
+            created_at: quiz.created_at,
+            teacher_login: {
+                username: quiz.teacher_login?.username || 'Unknown Teacher'
+            }
+        }));
+
+        return createSuccessResponse({ quizzes: transformedQuizzes });
     } catch (err) {
-        console.error('Error:', err);
-        return createErrorResponse(500, 'Internal server error');
+        console.error('Error in upcoming-quizzes handler:', err);
+        return createErrorResponse(500, 'Internal server error', err.message);
     }
 };
