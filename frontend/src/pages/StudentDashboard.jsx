@@ -530,6 +530,7 @@ function TakeQuizContent({ currentUser, quizCode, currentQuiz, loading, error })
             if (response.data.success) {
                 setIsSubmitted(true);
                 setScore(response.data.score);
+                // Redirect to results page after 3 seconds
                 setTimeout(() => {
                     navigate(`/student-dashboard/quiz/${quizCode}`);
                 }, 3000);
@@ -539,96 +540,104 @@ function TakeQuizContent({ currentUser, quizCode, currentQuiz, loading, error })
         }
     };
 
-    // Timer logic
-    useEffect(() => {
-        if (timeLeft <= 0 || isSubmitted) return;
-        const timer = setInterval(() => {
-            setTimeLeft(prev => prev - 1);
-        }, 1000);
-        return () => clearInterval(timer);
-    }, [timeLeft, isSubmitted]);
-
     if (!quizCode) {
         return (
-            <div className="take-quiz">
-                <h2>Enter Quiz Code</h2>
-                <form onSubmit={(e) => {
-                    e.preventDefault();
-                    const input = e.target.elements.quizCode;
-                    if (input.value) {
-                        navigate(`/student-dashboard/take-quiz/${input.value}`);
-                    }
-                }}>
-                    <input
-                        type="text"
-                        name="quizCode"
-                        placeholder="Enter quiz code"
-                        className="quiz-code-input"
-                        required
-                    />
-                    <button type="submit">Start Quiz</button>
-                </form>
+            <div className="content">
+                <div className="take-quiz-content">
+                    <h2>Enter Quiz Code</h2>
+                    <form onSubmit={(e) => {
+                        e.preventDefault();
+                        const input = e.target.elements.quizCode;
+                        if (input.value) {
+                            navigate(`/student-dashboard/take-quiz/${input.value}`);
+                        }
+                    }}>
+                        <input
+                            type="text"
+                            name="quizCode"
+                            className="quiz-code-input"
+                            placeholder="Enter quiz code"
+                            required
+                        />
+                        <button type="submit" className="start-quiz-btn">
+                            Start Quiz
+                        </button>
+                    </form>
+                </div>
             </div>
         );
     }
 
     if (loading) {
-        return <div className="loading">Loading quiz...</div>;
+        return (
+            <div className="content">
+                <div className="loading">Loading quiz...</div>
+            </div>
+        );
     }
 
     if (error) {
-        return <div className="error-message">{error}</div>;
+        return (
+            <div className="content">
+                <div className="error-message">{error}</div>
+            </div>
+        );
     }
 
     if (!currentQuiz) {
-        return <div className="error-message">Quiz not found</div>;
+        return (
+            <div className="content">
+                <div className="error-message">Quiz not found</div>
+            </div>
+        );
     }
 
     if (isSubmitted) {
         return (
-            <div className="quiz-submitted">
-                <h2>Quiz Submitted!</h2>
-                <p>Your score: {score}/{currentQuiz.questions.length}</p>
-                <p>Redirecting to results...</p>
+            <div className="content">
+                <div className="quiz-submitted">
+                    <h2>Quiz Submitted!</h2>
+                    <p>Your score: {score}/{currentQuiz.questions.length}</p>
+                    <p>Redirecting to results...</p>
+                </div>
             </div>
         );
     }
 
     return (
-        <div className="take-quiz">
-            <div className="quiz-header">
-                <h2>{currentQuiz.name}</h2>
-                <div className="quiz-info">
-                    <span>Code: {currentQuiz.code}</span>
-                    <span>Time Left: {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}</span>
-                </div>
-            </div>
-            
-            <div className="questions-container">
-                {currentQuiz.questions.map((question, index) => (
-                    <div key={index} className="question-card">
-                        <h3>Question {index + 1}</h3>
-                        <p>{question.question_text}</p>
-                        <div className="options">
-                            {question.options.map((option, optionIndex) => (
-                                <label key={optionIndex} className="option">
-                                    <input
-                                        type="radio"
-                                        name={`question-${index}`}
-                                        checked={selectedAnswers[index] === optionIndex}
-                                        onChange={() => handleAnswerChange(index, optionIndex)}
-                                    />
-                                    <span>{option.text}</span>
-                                </label>
-                            ))}
+        <div className="content">
+            <div className="quiz-container">
+                <h2 className="quiz-title">{currentQuiz.name}</h2>
+                <div className="question-list">
+                    {currentQuiz.questions.map((question, index) => (
+                        <div key={index} className="question-card">
+                            <span className="question-number">Question {index + 1}</span>
+                            <p className="question-text">{question.question_text}</p>
+                            <div className="options-container">
+                                {question.options.map((option, optionIndex) => (
+                                    <div key={optionIndex} className="option-item">
+                                        <label className={selectedAnswers[index] === optionIndex ? 'selected' : ''}>
+                                            <input
+                                                type="radio"
+                                                name={`question_${index}`}
+                                                value={optionIndex}
+                                                checked={selectedAnswers[index] === optionIndex}
+                                                onChange={() => handleAnswerChange(index, optionIndex)}
+                                            />
+                                            <span className="option-text">{option.text}</span>
+                                        </label>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
-                    </div>
-                ))}
-            </div>
-            
-            <div className="quiz-footer">
-                <button onClick={handleSubmitQuiz} disabled={isSubmitted}>
-                    Submit Quiz
+                    ))}
+                </div>
+                <button
+                    className="submit-quiz-btn"
+                    onClick={handleSubmitQuiz}
+                    disabled={loading || Object.keys(selectedAnswers).length !== currentQuiz.questions.length}
+                >
+                    {loading ? 'Submitting...' : 'Submit Quiz'}
                 </button>
             </div>
         </div>
